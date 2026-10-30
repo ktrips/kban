@@ -1,0 +1,499 @@
+<title>kenban</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: 工程ライン。上部に工程ストリップ(件数)、下にレーン。狭い画面は工程タブ+1レーン。 */
+:root{
+  --bg:#EEF1F4; --panel:#FFFFFF; --ink:#18212B; --muted:#5D6B7A; --line:#D3DAE2;
+  --accent:#D9480F; --accent-ink:#FFFFFF; --soft:#E3E8EE; --tag:#F6F8FA;
+  --ok:#2B8A3E; --warn:#C27A00; --bad:#C92A2A;
+  --s-idea:#8A94A3; --s-spec:#5C7CFA; --s-queued:#D9480F; --s-building:#AE3EC9; --s-testing:#C27A00; --s-deploying:#1C7ED6; --s-verifying:#0C8599; --s-done:#2B8A3E;
+  --f-display:"Dela Gothic One","Hiragino Sans",sans-serif;
+  --f-body:"IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171D; --panel:#1B222A; --ink:#E6EBF0; --muted:#94A2B1; --line:#2C3640;
+  --accent:#FF7A3D; --accent-ink:#1B1006; --soft:#242D37; --tag:#212932;
+  --ok:#51CF66; --warn:#FCC419; --bad:#FF6B6B;
+  --s-idea:#9AA4B2; --s-spec:#8EA2FF; --s-queued:#FF7A3D; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171D; --panel:#1B222A; --ink:#E6EBF0; --muted:#94A2B1; --line:#2C3640;
+  --accent:#FF7A3D; --accent-ink:#1B1006; --soft:#242D37; --tag:#212932;
+  --ok:#51CF66; --warn:#FCC419; --bad:#FF6B6B;
+  --s-idea:#9AA4B2; --s-spec:#8EA2FF; --s-queued:#FF7A3D; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:var(--f-display);font-size:26px;letter-spacing:.02em;line-height:1}
+.logo b{color:var(--accent);font-weight:400}
+.sub{color:var(--muted);font-size:12px}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.ghost{background:transparent}
+.btn.small{padding:4px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+select.flt{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 8px}
+
+/* quick add */
+.add{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.add input{flex:1;min-width:0;border:0;background:transparent;padding:6px 8px;font-size:15px}
+.add input:focus{outline:none}
+.add select{border:0;background:var(--soft);border-radius:8px;padding:4px 6px;max-width:120px}
+
+/* stage strip */
+.strip-scroll{overflow-x:auto;scrollbar-width:none;margin-inline:-4px;padding-inline:4px}
+.strip{display:flex;gap:6px;min-width:max-content}
+.st{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px 5px 8px;cursor:pointer;font-size:13px}
+.st .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.st .n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.st[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
+.st .arrow{color:var(--line)}
+.wip{color:var(--bad)!important;font-weight:700}
+
+/* board */
+.board-scroll{overflow-x:auto;padding-bottom:6px}
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px,1fr);gap:10px;min-width:max-content}
+.lane{display:flex;flex-direction:column;gap:8px;min-width:0;background:var(--soft);border-radius:12px;padding:8px;min-height:160px}
+.lane.drop{outline:2px dashed var(--c);outline-offset:-2px}
+.lane h2{margin:0;font-size:13px;display:flex;align-items:center;gap:8px;padding:2px 4px 4px;border-bottom:2px solid var(--c)}
+.lane h2 .n{font-family:var(--f-mono);color:var(--muted);font-weight:400;margin-left:auto}
+.lane .hint{font-size:11px;color:var(--muted);padding:0 4px}
+.empty{color:var(--muted);font-size:12px;padding:14px 6px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+@media (max-width:899px){
+  .board-scroll{overflow:visible}
+  .board{display:block;min-width:0}
+  .lane{display:none;background:transparent;padding:0}
+  .lane.active{display:flex}
+}
+
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
+.card:hover{border-color:var(--muted);border-left-color:var(--c)}
+.card .t{font-weight:700;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.chip{font-size:11px;background:var(--tag);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);white-space:nowrap}
+.chip.mono{font-family:var(--f-mono)}
+.chip.p-高{color:var(--bad);border-color:currentColor}
+.chip.ex{color:var(--warn);border-color:currentColor}
+.card .next{display:flex;gap:6px;flex-wrap:wrap}
+.prog{height:4px;background:var(--soft);border-radius:4px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--c)}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,14,18,.45);z-index:20;display:flex;justify-content:flex-end}
+.sheet{background:var(--bg);width:min(560px,100%);height:100%;overflow-y:auto;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) 16px;padding-top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:14px;border-left:1px solid var(--line)}
+@media (max-width:600px){.scrim{align-items:flex-end}.sheet{height:92%;border-radius:16px 16px 0 0;border-left:0;padding-left:max(16px,env(safe-area-inset-left,0px))}}
+.sheet-h{display:flex;gap:8px;align-items:flex-start}
+.sheet-h input{flex:1;min-width:0;font-size:18px;font-weight:700;border:0;background:transparent;padding:2px 0}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label,.lbl{font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.field textarea,.field input,.field select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;width:100%}
+.field textarea{min-height:72px;resize:vertical}
+.field textarea.code{font-family:var(--f-mono);font-size:12px;min-height:120px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.row2{grid-template-columns:1fr}}
+.section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.section.act{border-color:var(--c);box-shadow:inset 3px 0 0 var(--c)}
+.section h3{margin:0;font-size:14px;display:flex;gap:8px;align-items:center}
+.checks{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:8px;align-items:flex-start}
+.checks input{margin-top:4px;accent-color:var(--ok)}
+.timeline{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.timeline span{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.note{font-size:12px;color:var(--muted)}
+.err{color:var(--bad);font-size:12px}
+.stream{font-family:var(--f-mono);font-size:12px;white-space:pre-wrap;color:var(--muted);max-height:140px;overflow:auto;background:var(--soft);border-radius:8px;padding:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:40;font-size:13px}
+.banner{font-size:12px;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .12s}.sheet{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="logo">ken<b>ban</b></div>
+      <div class="sub">アイデア → AI実装 → テスト → デプロイ → 確認</div>
+    </div>
+    <div class="spacer"></div>
+    <select class="flt" id="fProject" aria-label="プロジェクトで絞り込み"><option value="">すべてのプロジェクト</option></select>
+    <button class="btn" id="bSettings" type="button">設定</button>
+  </header>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <input id="addInput" placeholder="アイデアをひとこと… 例: 動画の結合前にサムネで並べ替え" aria-label="新しいアイデア">
+    <select id="addProject" aria-label="プロジェクト"></select>
+    <button class="btn primary" type="submit">追加</button>
+  </form>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="strip-scroll"><div class="strip" id="strip"></div></div>
+  <div class="board-scroll"><div class="board" id="board"></div></div>
+</div>
+<div id="sheetRoot"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const STAGES=[
+ {id:"idea",name:"アイデア",hint:"思いつきを書き溜める"},
+ {id:"spec",name:"仕様化",hint:"AIが仕様と受入条件に整える"},
+ {id:"queued",name:"AIに指示",hint:"Issue化してClaude Codeに渡す"},
+ {id:"building",name:"実装中",hint:"Claude CodeがPRを作成中",wip:3},
+ {id:"testing",name:"テスト",hint:"CIと受入条件をチェック"},
+ {id:"deploying",name:"デプロイ",hint:"プレビュー / TestFlight"},
+ {id:"verifying",name:"確認",hint:"実機・実画面で確かめる"},
+ {id:"done",name:"完了",hint:"リリース済み"}
+];
+const SI=Object.fromEntries(STAGES.map((s,i)=>[s.id,i]));
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const now=()=>new Date().toISOString();
+const fmt=iso=>{try{const d=new Date(iso);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}catch{return""}};
+
+let db=null, sample=null, cardsCol=null, settingsDoc=null, canWrite=true, live=false;
+let cards=[]; let settings={projects:[{name:"komb",repo:"ktrips/komb",target:"ios"}],defaultProject:"komb"};
+let filter=""; let activeStage="idea"; let openId=null; let busy={};
+
+try{filter=localStorage.getItem("kb.filter")||"";activeStage=localStorage.getItem("kb.stage")||"idea"}catch{}
+
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2200)}
+async function copy(text,label){try{await navigator.clipboard.writeText(text);toast((label||"テキスト")+"をコピーしました")}catch{toast("コピーできませんでした。テキストを長押しで選択してください")}}
+const proj=name=>settings.projects.find(p=>p.name===name)||{name,repo:"",target:"web"};
+
+/* ---------- data ---------- */
+async function save(card){
+  card.updatedAt=now();
+  if(!live){render();return}
+  const {id,...body}=card;
+  try{await cardsCol.doc(id).set(body)}catch(e){toast(e.code==="not_granted"||e.code==="permission_denied"?"保存する権限がありません":"保存できませんでした: "+(e.message||e.code))}
+}
+function moveTo(card,stage,why){
+  if(card.stage===stage)return;
+  card.stage=stage; card.history=[...(card.history||[]),{stage,at:now(),why:why||""}].slice(-40);
+  save(card); render();
+}
+async function create(title,project){
+  const c={title,idea:title,spec:"",criteria:[],prompt:"",project,target:proj(project).target||"web",priority:"中",stage:"idea",issue:"",pr:"",preview:"",checked:[],feedback:"",history:[{stage:"idea",at:now()}],createdAt:now(),updatedAt:now()};
+  if(live){try{const r=cardsCol.doc();c.id=r.id;const {id,...b}=c;await r.set(b)}catch(e){toast("追加できませんでした: "+(e.message||e.code));return}}
+  else{c.id="local-"+Math.random().toString(36).slice(2);cards.push(c);render()}
+  toast("アイデアを追加しました");
+}
+async function remove(card){
+  if(live){try{await cardsCol.doc(card.id).delete()}catch(e){toast("削除できませんでした");return}}
+  else{cards=cards.filter(c=>c.id!==card.id);render()}
+  closeSheet();toast("削除しました");
+}
+
+/* ---------- AI ---------- */
+async function aiSpec(card){
+  if(!sample){toast("このビューではAIを呼べません。仕様を手で書いてください");return}
+  busy[card.id]="spec";render();renderSheet();
+  const p=proj(card.project);
+  const input=`あなたはモバイル/Webアプリ開発のプロダクトマネージャー兼テックリードです。
+次のアイデアを、Claude Code(GitHub Actions上で動くコーディングエージェント)にそのまま渡せる開発タスクに整えてください。
+プロジェクト: ${card.project}(リポジトリ: ${p.repo||"未設定"}、対象: ${card.target==="ios"?"iOSアプリ(SwiftUI想定)":card.target==="both"?"iOSアプリとWeb":"Webアプリ"})
+アイデア: ${card.idea||card.title}
+${card.feedback?"前回の確認で出た指摘: "+card.feedback:""}
+
+JSONだけで返してください。形式:
+{"title":"40字以内の具体的なタスク名","spec":"目的と仕様を箇条書き(各行'- 'で始める、5〜8行)","criteria":["検証できる受入条件を3〜6個"],"prompt":"Claude Codeへの指示文。変更範囲、触るべき箇所の推測、テストの追加方法、完了の定義を含め、最後に『受入条件をすべて満たしたらPRを作成し、PR本文にテスト結果と確認手順を書くこと』で締める"}`;
+  try{
+    const r=await sample.json(input,{modelTier:"default"});
+    if(r&&typeof r==="object"){
+      card.title=String(r.title||card.title).slice(0,80);
+      card.spec=String(r.spec||"");
+      card.criteria=Array.isArray(r.criteria)?r.criteria.map(String).slice(0,8):[];
+      card.prompt=String(r.prompt||"");
+      card.checked=[];
+      if(card.stage==="idea")moveTo(card,"spec","AIで仕様化");else save(card);
+      toast("仕様と受入条件を作りました");
+    }
+  }catch(e){toast(e.code==="not_granted"?"AIの利用が許可されませんでした":e.code==="rate_limited"?"少し待ってからもう一度どうぞ":"AIの応答を読めませんでした")}
+  finally{delete busy[card.id];render();renderSheet()}
+}
+async function aiFix(card){
+  if(!sample){return}
+  busy[card.id]="fix";renderSheet();
+  const unmet=(card.criteria||[]).filter((_,i)=>!(card.checked||[]).includes(i));
+  const input=`Claude Codeに差し戻しの修正指示を書いてください。日本語、200〜400字、手順が明確な指示文だけを返す。
+タスク: ${card.title}
+PR: ${card.pr||"不明"}
+満たしていない受入条件: ${unmet.join(" / ")||"なし"}
+確認での指摘: ${card.feedback||"なし"}
+元の指示: ${card.prompt}`;
+  try{const r=await sample(input,{modelTier:"default"});card.prompt=r.text.trim()+"\n\n(元の指示)\n"+card.prompt.split("\n\n(元の指示)\n").pop();moveTo(card,"queued","差し戻し");toast("修正指示を作りました。もう一度AIに渡してください")}
+  catch(e){toast("修正指示を作れませんでした")}
+  finally{delete busy[card.id];render();renderSheet()}
+}
+
+/* ---------- GitHub handoff ---------- */
+function issueBody(card){
+  const p=proj(card.project);
+  return `<!-- kenban:card=${card.id} -->
+<!-- kenban:target=${card.target} -->
+## 背景
+${card.idea||card.title}
+
+## 仕様
+${card.spec||"- (未記入)"}
+
+## 受入条件
+${(card.criteria||[]).map(c=>"- [ ] "+c).join("\n")||"- [ ] (未記入)"}
+
+## Claude Codeへの指示
+${card.prompt||"上記の仕様と受入条件を満たす実装を行い、PRを作成してください。"}
+
+---
+対象: ${card.target} / 優先度: ${card.priority} / kenbanから作成`;
+}
+function issueUrl(card){
+  const p=proj(card.project); if(!p.repo)return "";
+  const labels=["kenban","claude",`kenban:${card.target}`].join(",");
+  return `https://github.com/${p.repo}/issues/new?title=${encodeURIComponent(card.title)}&labels=${encodeURIComponent(labels)}&body=${encodeURIComponent(issueBody(card))}`;
+}
+
+/* ---------- render board ---------- */
+function visible(){return cards.filter(c=>!filter||c.project===filter)}
+function render(){
+  const vis=visible();
+  const by=Object.fromEntries(STAGES.map(s=>[s.id,[]]));
+  vis.forEach(c=>(by[c.stage]||by.idea).push(c));
+  const pr={"高":0,"中":1,"低":2};
+  Object.values(by).forEach(a=>a.sort((x,y)=>(pr[x.priority]??1)-(pr[y.priority]??1)||String(y.updatedAt).localeCompare(String(x.updatedAt))));
+
+  $("#strip").innerHTML=STAGES.map((s,i)=>{
+    const n=by[s.id].length, over=s.wip&&n>s.wip;
+    return `${i?'<span class="arrow" aria-hidden="true">›</span>':""}<button type="button" class="st" style="--c:var(--s-${s.id})" data-stage="${s.id}" aria-pressed="${activeStage===s.id}"><span class="dot"></span>${s.name}<span class="n ${over?"wip":""}">${n}${s.wip?"/"+s.wip:""}</span></button>`}).join("");
+
+  $("#board").innerHTML=STAGES.map(s=>`
+    <section class="lane ${activeStage===s.id?"active":""}" style="--c:var(--s-${s.id})" data-lane="${s.id}" aria-label="${s.name}">
+      <h2>${s.name}<span class="n">${by[s.id].length}</span></h2>
+      <div class="hint">${s.hint}</div>
+      ${by[s.id].map(cardHTML).join("")||`<div class="empty">${s.id==="idea"?"上の入力欄からアイデアを追加":"ここに来るカードはまだありません"}</div>`}
+    </section>`).join("");
+
+  const opts=settings.projects.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("");
+  $("#fProject").innerHTML=`<option value="">すべてのプロジェクト</option>`+opts; $("#fProject").value=filter;
+  const ap=$("#addProject"), cur=ap.value||filter||settings.defaultProject; ap.innerHTML=opts; ap.value=settings.projects.some(p=>p.name===cur)?cur:(settings.projects[0]?.name||"");
+}
+function nextAction(c){
+  const b=busy[c.id];
+  switch(c.stage){
+    case "idea":return `<button class="btn small primary" data-act="spec" data-id="${c.id}" ${b||!sample?"disabled":""}>${b?"仕様化中…":"AIで仕様化"}</button>`;
+    case "spec":return `<button class="btn small primary" data-act="open" data-id="${c.id}">AIに渡す</button>`;
+    case "queued":return c.issue?`<span class="chip mono">#${esc(c.issue)}</span><span class="note">Claude Code待ち</span>`:`<span class="note">Issue番号を入力</span>`;
+    case "building":return c.pr?`<span class="chip mono">PR</span>`:`<span class="note">PR待ち</span>`;
+    case "testing":{const n=(c.criteria||[]).length,k=(c.checked||[]).length;return `<span class="note">受入条件 ${k}/${n}</span>`}
+    case "deploying":return c.preview?`<span class="chip">プレビューあり</span>`:`<span class="note">プレビューURL待ち</span>`;
+    case "verifying":return `<button class="btn small" data-act="open" data-id="${c.id}">確認する</button>`;
+    default:return "";
+  }
+}
+function cardHTML(c){
+  const n=(c.criteria||[]).length,k=(c.checked||[]).length;
+  return `<article class="card" tabindex="0" draggable="true" style="--c:var(--s-${c.stage})" data-id="${c.id}">
+    <div class="t">${esc(c.title)}</div>
+    <div class="meta">
+      <span class="chip">${esc(c.project||"—")}</span>
+      <span class="chip">${c.target==="ios"?"iOS":c.target==="both"?"iOS+Web":"Web"}</span>
+      ${c.priority==="高"?'<span class="chip p-高">優先度 高</span>':""}
+      ${c.example?'<span class="chip ex">例</span>':""}
+      ${c.issue?`<span class="chip mono">#${esc(c.issue)}</span>`:""}
+    </div>
+    ${["testing","verifying"].includes(c.stage)&&n?`<div class="prog" aria-label="受入条件 ${k}/${n}"><i style="width:${n?k/n*100:0}%"></i></div>`:""}
+    <div class="next">${nextAction(c)}</div>
+  </article>`;
+}
+
+/* ---------- sheet ---------- */
+function openSheet(id){openId=id;renderSheet()}
+function closeSheet(){openId=null;$("#sheetRoot").innerHTML=""}
+function renderSheet(){
+  const c=cards.find(x=>x.id===openId); const root=$("#sheetRoot");
+  if(!c){root.innerHTML="";return}
+  const s=STAGES[SI[c.stage]]||STAGES[0], b=busy[c.id];
+  const p=proj(c.project), url=issueUrl(c);
+  const crit=(c.criteria||[]).map((t,i)=>`<li><input type="checkbox" id="ck${i}" data-ck="${i}" ${(c.checked||[]).includes(i)?"checked":""}><label for="ck${i}">${esc(t)}</label></li>`).join("");
+  let action="";
+  if(c.stage==="idea"||c.stage==="spec"){
+    action=`<div class="section act" style="--c:var(--s-${c.stage})"><h3>${c.stage==="idea"?"1. AIで仕様化":"2. Claude Codeに渡す"}</h3>
+      ${c.stage==="idea"?`<p class="note">アイデアから、目的・仕様・受入条件・Claude Codeへの指示文を作ります。</p>
+        <div class="btns"><button class="btn primary" data-act="spec" ${b||!sample?"disabled":""}>${b?"仕様化中…":"AIで仕様化"}</button><button class="btn" data-act="skip-spec">手で書く</button></div>`
+      :`<p class="note">GitHubにIssueを作ると、<code>claude</code>ラベルでClaude Codeが起動し、ブランチとPRを作ります。</p>
+        ${url?`<div class="btns"><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">GitHubでIssueを作成</a><button class="btn" data-act="copy-body">本文をコピー</button></div>`
+        :`<p class="err">設定で「${esc(c.project)}」のリポジトリを登録してください。</p><div class="btns"><button class="btn" data-act="copy-body">本文をコピー</button></div>`}
+        <div class="row2"><div class="field"><label for="fIssue">作成したIssue番号</label><input id="fIssue" inputmode="numeric" value="${esc(c.issue)}" placeholder="例: 12"></div>
+        <div class="field" style="justify-content:flex-end"><button class="btn" data-act="queued">AIに指示済みにする</button></div></div>`}
+    </div>`;
+  } else if(c.stage==="queued"||c.stage==="building"){
+    action=`<div class="section act" style="--c:var(--s-${c.stage})"><h3>${c.stage==="queued"?"3. Claude Codeの着手待ち":"4. 実装中"}</h3>
+      <p class="note">連携ワークフローを入れたリポジトリでは、PRが開くと自動で「テスト」に進みます。手動で進めることもできます。</p>
+      <div class="row2"><div class="field"><label for="fIssue">Issue番号</label><input id="fIssue" inputmode="numeric" value="${esc(c.issue)}"></div>
+      <div class="field"><label for="fPr">PRのURL</label><input id="fPr" value="${esc(c.pr)}" placeholder="https://github.com/…/pull/…"></div></div>
+      <div class="btns">${c.issue&&p.repo?`<a class="btn" target="_blank" rel="noopener" href="https://github.com/${esc(p.repo)}/issues/${esc(c.issue)}">Issueを開く</a>`:""}
+      ${c.stage==="queued"?`<button class="btn" data-act="building">着手を記録</button>`:""}<button class="btn primary" data-act="testing">PRができた → テストへ</button></div></div>`;
+  } else if(c.stage==="testing"){
+    action=`<div class="section act" style="--c:var(--s-testing)"><h3>5. テスト</h3>
+      <p class="note">CIの結果とPR本文を見て、受入条件をチェックします。</p>
+      ${c.pr?`<a class="btn" target="_blank" rel="noopener" href="${esc(c.pr)}">PRを開く</a>`:""}
+      <ul class="checks">${crit||'<li class="note">受入条件がありません</li>'}</ul>
+      <div class="field"><label for="fFb">指摘(差し戻すとき)</label><textarea id="fFb" placeholder="例: 横向きでボタンが切れる">${esc(c.feedback)}</textarea></div>
+      <div class="btns"><button class="btn primary" data-act="deploying">テスト合格 → デプロイへ</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div></div>`;
+  } else if(c.stage==="deploying"){
+    action=`<div class="section act" style="--c:var(--s-deploying)"><h3>6. デプロイ</h3>
+      <p class="note">WebはPRごとのプレビューURL、iOSはTestFlightのビルドを記録します。</p>
+      <div class="field"><label for="fPrev">プレビューURL / TestFlightビルド</label><input id="fPrev" value="${esc(c.preview)}" placeholder="https://… または build 1.4 (37)"></div>
+      <div class="btns"><button class="btn primary" data-act="verifying">デプロイ済み → 確認へ</button></div></div>`;
+  } else if(c.stage==="verifying"){
+    action=`<div class="section act" style="--c:var(--s-verifying)"><h3>7. 確認</h3>
+      ${/^https?:/.test(c.preview)?`<a class="btn" target="_blank" rel="noopener" href="${esc(c.preview)}">プレビューを開く</a>`:c.preview?`<span class="chip">${esc(c.preview)}</span>`:""}
+      <ul class="checks">${crit||'<li class="note">受入条件がありません</li>'}</ul>
+      <div class="field"><label for="fFb">気になった点</label><textarea id="fFb">${esc(c.feedback)}</textarea></div>
+      <div class="btns"><button class="btn primary" data-act="done">OK → 完了</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div></div>`;
+  } else {
+    action=`<div class="section"><h3>完了</h3><p class="note">${fmt((c.history||[]).slice(-1)[0]?.at)} にリリース。</p><div class="btns"><button class="btn" data-act="reopen">続きのアイデアをつくる</button></div></div>`;
+  }
+
+  root.innerHTML=`<div class="scrim" data-act="close"><aside class="sheet" role="dialog" aria-modal="true" aria-label="カードの詳細" style="--c:var(--s-${c.stage})">
+    <div class="sheet-h"><input id="fTitle" value="${esc(c.title)}" aria-label="タイトル"><button class="btn small ghost" data-act="close" aria-label="閉じる">閉じる</button></div>
+    <div class="meta"><span class="chip" style="color:var(--s-${c.stage});border-color:currentColor">${s.name}</span>${c.example?'<span class="chip ex">例のカード</span>':""}</div>
+    ${action}
+    <div class="row2">
+      <div class="field"><label for="fProj">プロジェクト</label><select id="fProj">${settings.projects.map(p=>`<option ${p.name===c.project?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="fTarget">対象</label><select id="fTarget">${[["web","Web"],["ios","iOS"],["both","iOS+Web"]].map(([v,l])=>`<option value="${v}" ${c.target===v?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label for="fPri">優先度</label><select id="fPri">${["高","中","低"].map(v=>`<option ${c.priority===v?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field"><label for="fStage">工程</label><select id="fStage">${STAGES.map(x=>`<option value="${x.id}" ${x.id===c.stage?"selected":""}>${x.name}</option>`).join("")}</select></div>
+    </div>
+    <div class="field"><label for="fIdea">アイデア</label><textarea id="fIdea">${esc(c.idea)}</textarea></div>
+    <div class="field"><label for="fSpec">仕様</label><textarea id="fSpec" style="min-height:110px">${esc(c.spec)}</textarea></div>
+    <div class="field"><label for="fCrit">受入条件(1行に1つ)</label><textarea id="fCrit">${esc((c.criteria||[]).join("\n"))}</textarea></div>
+    <div class="field"><label for="fPrompt">Claude Codeへの指示</label><textarea id="fPrompt" class="code">${esc(c.prompt)}</textarea></div>
+    ${c.stage!=="idea"&&c.stage!=="done"?`<div class="btns"><button class="btn small" data-act="spec" ${b||!sample?"disabled":""}>AIで仕様を作り直す</button><button class="btn small" data-act="copy-prompt">指示文をコピー</button></div>`:""}
+    <div class="field"><span class="lbl">履歴</span><div class="timeline">${(c.history||[]).slice().reverse().map(h=>`<div><span>${fmt(h.at)}</span> ${esc(STAGES[SI[h.stage]]?.name||h.stage)}${h.why?" · "+esc(h.why):""}</div>`).join("")}</div></div>
+    <div class="btns" style="justify-content:space-between"><span class="note">${live?"変更は自動で保存されます":"共有保存が使えないため、このタブを閉じると消えます"}</span><button class="btn small" data-act="del-ask">削除</button></div>
+    <div id="delConfirm" hidden class="btns"><span class="err">このカードを削除しますか?</span><button class="btn small" data-act="del">削除する</button><button class="btn small" data-act="del-cancel">やめる</button></div>
+  </aside></div>`;
+}
+/* sheet field edits: debounce saves */
+let editTimer=null;
+document.addEventListener("input",e=>{
+  const c=cards.find(x=>x.id===openId); if(!c||!e.target.closest(".sheet"))return;
+  const id=e.target.id, v=e.target.value;
+  if(e.target.dataset.ck!==undefined){const i=+e.target.dataset.ck;const set=new Set(c.checked||[]);e.target.checked?set.add(i):set.delete(i);c.checked=[...set].sort();save(c);render();return}
+  const map={fTitle:"title",fIdea:"idea",fSpec:"spec",fPrompt:"prompt",fIssue:"issue",fPr:"pr",fPrev:"preview",fFb:"feedback",fProj:"project",fTarget:"target",fPri:"priority"};
+  if(id==="fCrit"){c.criteria=v.split("\n").map(s=>s.trim()).filter(Boolean);c.checked=(c.checked||[]).filter(i=>i<c.criteria.length)}
+  else if(id==="fStage"){moveTo(c,v,"手動で移動");renderSheet();return}
+  else if(map[id]){c[map[id]]=id==="fIssue"?v.replace(/[^0-9]/g,""):v}
+  else return;
+  clearTimeout(editTimer);editTimer=setTimeout(()=>{save(c);render()},600);
+});
+
+/* ---------- clicks ---------- */
+document.addEventListener("click",e=>{
+  const st=e.target.closest(".st"); if(st){activeStage=st.dataset.stage;try{localStorage.setItem("kb.stage",activeStage)}catch{};render();
+    if(innerWidth>=900){document.querySelector(`[data-lane="${activeStage}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})}return}
+  const a=e.target.closest("[data-act]");
+  if(a){
+    if(a.dataset.act==="close"&&a!==e.target&&!e.target.closest("button"))return;
+    const c=cards.find(x=>x.id===(a.dataset.id||openId));
+    const act=a.dataset.act; e.stopPropagation();
+    switch(act){
+      case "close":closeSheet();return;
+      case "open":openSheet(c.id);return;
+      case "spec":aiSpec(c);return;
+      case "skip-spec":moveTo(c,"spec","手で仕様化");renderSheet();return;
+      case "copy-body":copy(issueBody(c),"Issue本文");return;
+      case "copy-prompt":copy(c.prompt,"指示文");return;
+      case "queued":moveTo(c,"queued",c.issue?"Issue #"+c.issue:"");renderSheet();return;
+      case "building":moveTo(c,"building");renderSheet();return;
+      case "testing":moveTo(c,"testing",c.pr?"PR作成":"");renderSheet();return;
+      case "deploying":moveTo(c,"deploying","テスト合格");renderSheet();return;
+      case "verifying":moveTo(c,"verifying",c.preview||"");c.checked=[];save(c);renderSheet();return;
+      case "done":c.feedback="";moveTo(c,"done","確認OK");renderSheet();return;
+      case "fix":aiFix(c);return;
+      case "reopen":create("続き: "+c.title,c.project);closeSheet();return;
+      case "del-ask":$("#delConfirm").hidden=false;return;
+      case "del-cancel":$("#delConfirm").hidden=true;return;
+      case "del":remove(c);return;
+      case "settings":return;
+    }
+  }
+  const card=e.target.closest(".card"); if(card&&!e.target.closest("button,a"))openSheet(card.dataset.id);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&openId)closeSheet();
+  if(e.key==="Enter"&&e.target.classList?.contains("card"))openSheet(e.target.dataset.id);
+});
+
+$("#fProject").addEventListener("change",e=>{filter=e.target.value;try{localStorage.setItem("kb.filter",filter)}catch{};render()});
+$("#addForm").addEventListener("submit",e=>{e.preventDefault();const v=$("#addInput").value.trim();if(!v)return;create(v,$("#addProject").value||settings.defaultProject);$("#addInput").value="";activeStage="idea";});
+
+/* drag & drop (desktop) */
+let dragId=null;
+document.addEventListener("dragstart",e=>{const c=e.target.closest?.(".card");if(c){dragId=c.dataset.id;e.dataTransfer.effectAllowed="move"}});
+document.addEventListener("dragover",e=>{const l=e.target.closest?.(".lane");if(l&&dragId){e.preventDefault();document.querySelectorAll(".lane.drop").forEach(x=>x!==l&&x.classList.remove("drop"));l.classList.add("drop")}});
+document.addEventListener("drop",e=>{const l=e.target.closest?.(".lane");document.querySelectorAll(".lane.drop").forEach(x=>x.classList.remove("drop"));if(l&&dragId){e.preventDefault();const c=cards.find(x=>x.id===dragId);if(c)moveTo(c,l.dataset.lane,"ドラッグで移動")}dragId=null});
+document.addEventListener("dragend",()=>{dragId=null;document.querySelectorAll(".lane.drop").forEach(x=>x.classList.remove("drop"))});
+
+/* settings sheet */
+$("#bSettings").addEventListener("click",()=>{
+  openId=null;
+  $("#sheetRoot").innerHTML=`<div class="scrim" id="setScrim"><aside class="sheet" role="dialog" aria-modal="true" aria-label="設定">
+   <div class="sheet-h"><input value="設定" readonly aria-label="見出し"><button class="btn small ghost" id="setClose">閉じる</button></div>
+   <div class="section"><h3>プロジェクトとリポジトリ</h3>
+   <p class="note">1行に1つ。<code>名前, owner/repo, web|ios|both</code></p>
+   <div class="field"><label for="setProj">プロジェクト</label><textarea id="setProj" class="code">${esc(settings.projects.map(p=>[p.name,p.repo,p.target].join(", ")).join("\n"))}</textarea></div>
+   <div class="btns"><button class="btn primary" id="setSave">保存</button></div></div>
+   <div class="section"><h3>GitHub連携のしくみ</h3>
+   <p class="note">各リポジトリに kenban のワークフローを入れると、<code>claude</code>ラベルのIssueでClaude Codeが実装を始め、PR作成・CI合格・デプロイ完了に合わせてIssueの<code>kenban:工程</code>ラベルが自動で進みます。このボードではIssue番号とPR URLを記録して追いかけます。</p></div>
+   ${cards.some(c=>c.example)&&live?`<div class="section"><h3>例のカード</h3><div class="btns"><button class="btn" id="setClearEx">例のカードをすべて削除</button></div></div>`:""}
+  </aside></div>`;
+  $("#setClose").onclick=()=>$("#sheetRoot").innerHTML="";
+  $("#setScrim").onclick=e=>{if(e.target.id==="setScrim")$("#sheetRoot").innerHTML=""};
+  $("#setSave").onclick=async()=>{
+    const ps=$("#setProj").value.split("\n").map(l=>l.split(",").map(s=>s.trim())).filter(a=>a[0]).map(([name,repo="",target="web"])=>({name,repo,target:["web","ios","both"].includes(target)?target:"web"}));
+    if(!ps.length){toast("プロジェクトを1つ以上入れてください");return}
+    settings={projects:ps,defaultProject:ps[0].name};
+    if(live){try{await settingsDoc.set(settings)}catch(e){toast("保存できませんでした");return}}
+    render();toast("設定を保存しました");$("#sheetRoot").innerHTML="";
+  };
+  const ce=$("#setClearEx"); if(ce)ce.onclick=async()=>{for(const c of cards.filter(c=>c.example)){try{await cardsCol.doc(c.id).delete()}catch{}}toast("例のカードを削除しました");$("#sheetRoot").innerHTML=""};
+});
+
+/* ---------- boot ---------- */
+function demo(){
+  const t=now();
+  cards=[
+   {id:"d1",title:"結合前にサムネイルで並べ替え",idea:"動画を結合する前にサムネで順番を入れ替えたい",project:"komb",target:"ios",priority:"高",stage:"idea",criteria:[],checked:[],history:[{stage:"idea",at:t}],example:true,updatedAt:t},
+   {id:"d2",title:"倍速プリセットを保存",idea:"よく使う倍速を保存したい",spec:"- 1.25/1.5/2.0の既定プリセット\n- ユーザーが1つ追加できる",criteria:["プリセットを選ぶと倍速が反映される","アプリ再起動後もプリセットが残る"],prompt:"",project:"komb",target:"ios",priority:"中",stage:"spec",checked:[],history:[{stage:"spec",at:t}],example:true,updatedAt:t},
+   {id:"d3",title:"カット位置を0.1秒単位で調整",project:"komb",target:"ios",priority:"中",stage:"testing",criteria:["0.1秒刻みで前後できる","プレビューが追従する","既存のカット機能が壊れない"],checked:[0],issue:"7",history:[{stage:"testing",at:t}],example:true,updatedAt:t}
+  ];
+}
+async function boot(){
+  render();
+  if(!window.claude){demo();banner("デモ表示中です。claude.ai で開くとカードが保存され、AIで仕様化できます。");render();return}
+  const [d,s,u]=await Promise.all([claude.use("db"),claude.use("sample"),claude.use("user")]);
+  sample=s; render();
+  if(!d){demo();banner("サインインしていないため保存できません。表示は例のカードです。");render();return}
+  db=d; live=true; cardsCol=db.collection("cards"); settingsDoc=db.doc("meta/settings");
+  if(u&&u.can){try{const w=u.can("data.write");if(w===false){canWrite=false;banner("閲覧のみの権限です。カードの追加・移動はできません。")}}catch{}}
+  settingsDoc.onSnapshot(sn=>{if(sn.exists){const v=sn.data();if(Array.isArray(v.projects)&&v.projects.length)settings={projects:v.projects,defaultProject:v.defaultProject||v.projects[0].name};render()}},()=>{});
+  cardsCol.onSnapshot(sn=>{
+    const local=openId&&document.activeElement&&document.activeElement.closest?.(".sheet");
+    cards=sn.docs.map(x=>({id:x.id,...x.data(),criteria:[...(x.data().criteria||[])],checked:[...(x.data().checked||[])],history:[...(x.data().history||[])]}));
+    render(); if(openId&&!local)renderSheet();
+  },e=>{banner("保存先に接続できなくなりました。ページを再読み込みしてください。")});
+}
+function banner(m){const b=$("#banner");b.textContent=m;b.hidden=false}
+boot();
+</script>

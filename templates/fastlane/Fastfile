@@ -1,0 +1,26 @@
+# kenban: TestFlight へのアップロード(CI 用)
+# 署名は fastlane match(appstore, readonly)を使います。最初に手元で `fastlane match appstore` を一度実行してください。
+default_platform(:ios)
+
+platform :ios do
+  lane :beta do
+    setup_ci
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_KEY_P8"],
+      is_key_content_base64: false
+    )
+    match(type: "appstore", readonly: true, api_key: api_key)
+
+    scheme = ENV["KENBAN_SCHEME"].to_s.empty? ? JSON.parse(File.read("../.github/kenban/config.json"))["scheme"] : ENV["KENBAN_SCHEME"]
+    build = latest_testflight_build_number(api_key: api_key) + 1
+    increment_build_number(build_number: build)
+
+    build_app(scheme: scheme, export_method: "app-store")
+    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+
+    version = get_version_number(target: scheme) rescue ""
+    File.write("kenban_build.txt", "#{version} (#{build})")
+  end
+end
