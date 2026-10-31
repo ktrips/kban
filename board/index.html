@@ -1,14 +1,14 @@
-<title>kenban</title>
+<title>kban</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
 <style>
-/* Layout: 工程ライン。上部に工程ストリップ(件数)、下にレーン。狭い画面は工程タブ+1レーン。 */
+/* Layout: リポジトリ一覧(全体の進み具合)→ リポジトリのボード(バックログは順位付きの縦リスト、その右に工程レーン)。狭い画面は工程タブ+1レーン。 */
 :root{
   --bg:#EEF1F4; --panel:#FFFFFF; --ink:#18212B; --muted:#5D6B7A; --line:#D3DAE2;
   --accent:#D9480F; --accent-ink:#FFFFFF; --soft:#E3E8EE; --tag:#F6F8FA;
-  --ok:#2B8A3E; --warn:#C27A00; --bad:#C92A2A;
-  --s-idea:#8A94A3; --s-spec:#5C7CFA; --s-queued:#D9480F; --s-building:#AE3EC9; --s-testing:#C27A00; --s-deploying:#1C7ED6; --s-verifying:#0C8599; --s-done:#2B8A3E;
+  --ok:#2B8A3E; --warn:#B86E00; --bad:#C92A2A;
+  --s-backlog:#8A94A3; --s-ready:#5C7CFA; --s-building:#AE3EC9; --s-testing:#B86E00; --s-deploying:#1C7ED6; --s-verifying:#0C8599; --s-done:#2B8A3E;
   --f-display:"Dela Gothic One","Hiragino Sans",sans-serif;
   --f-body:"IBM Plex Sans JP","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -17,57 +17,103 @@
   --bg:#12171D; --panel:#1B222A; --ink:#E6EBF0; --muted:#94A2B1; --line:#2C3640;
   --accent:#FF7A3D; --accent-ink:#1B1006; --soft:#242D37; --tag:#212932;
   --ok:#51CF66; --warn:#FCC419; --bad:#FF6B6B;
-  --s-idea:#9AA4B2; --s-spec:#8EA2FF; --s-queued:#FF7A3D; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
+  --s-backlog:#9AA4B2; --s-ready:#8EA2FF; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12171D; --panel:#1B222A; --ink:#E6EBF0; --muted:#94A2B1; --line:#2C3640;
   --accent:#FF7A3D; --accent-ink:#1B1006; --soft:#242D37; --tag:#212932;
   --ok:#51CF66; --warn:#FCC419; --bad:#FF6B6B;
-  --s-idea:#9AA4B2; --s-spec:#8EA2FF; --s-queued:#FF7A3D; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
+  --s-backlog:#9AA4B2; --s-ready:#8EA2FF; --s-building:#DA77F2; --s-testing:#FCC419; --s-deploying:#4DABF7; --s-verifying:#3BC9DB; --s-done:#51CF66;
   color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
 button,input,textarea,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+code{font-family:var(--f-mono);font-size:.92em;background:var(--soft);padding:0 4px;border-radius:4px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 40px;max-width:1680px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.logo{font-family:var(--f-display);font-size:26px;letter-spacing:.02em;line-height:1}
+.logo{font-family:var(--f-display);font-size:28px;letter-spacing:.02em;line-height:1;background:none;border:0;padding:0;cursor:pointer}
 .logo b{color:var(--accent);font-weight:400}
+.crumb{display:flex;align-items:center;gap:8px;min-width:0}
+.crumb .sep{color:var(--line);font-size:22px}
+.crumb select{font-family:var(--f-display);font-size:20px;border:0;background:transparent;padding:0 2px;cursor:pointer;max-width:60vw}
 .sub{color:var(--muted);font-size:12px}
 .spacer{flex:1}
-.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none}
+a.btn{color:inherit}
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .btn.ghost{background:transparent}
 .btn.small{padding:4px 9px;font-size:12px}
-.btn[disabled]{opacity:.5;cursor:not-allowed}
-select.flt{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 8px}
+.btn.icon{padding:2px 7px;font-size:12px;line-height:1.4}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+h1{font-size:15px;margin:0}
+.lbl{font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.note{font-size:12px;color:var(--muted)}
+.err{color:var(--bad);font-size:12px}
+.banner{font-size:12px;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:8px 12px}
+.chip{font-size:11px;background:var(--tag);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);white-space:nowrap}
+.chip.mono{font-family:var(--f-mono)}
+.chip.hi{color:var(--bad);border-color:currentColor}
+.chip.ex{color:var(--warn);border-color:currentColor}
+.chip.wait{color:var(--bad);border-color:currentColor;font-weight:700}
+.chip.par{color:var(--ok);border-color:currentColor}
+.meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.prog{height:5px;background:var(--soft);border-radius:4px;overflow:hidden;display:flex}
+.prog i{display:block;height:100%}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 
-/* quick add */
-.add{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
-.add input{flex:1;min-width:0;border:0;background:transparent;padding:6px 8px;font-size:15px}
+/* ---------- home ---------- */
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.repo{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;text-align:left;min-width:0}
+.repo:hover{border-color:var(--muted)}
+.repo .nm{font-family:var(--f-display);font-size:22px;line-height:1.1}
+.repo .full{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.repo .counts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.repo .counts div{display:flex;flex-direction:column}
+.repo .counts b{font-family:var(--f-mono);font-size:18px;font-variant-numeric:tabular-nums}
+.repo .counts span{font-size:11px;color:var(--muted)}
+.repo .nexts{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px;min-width:0}
+.repo .nexts div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.repo.add{align-items:center;justify-content:center;border-style:dashed;color:var(--muted);min-height:180px;background:transparent}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+.overview{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.ov-row{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line);cursor:pointer}
+.ov-row:first-of-type{border-top:0}
+.ov-row .r{font-family:var(--f-mono);font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.ov-row .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stagepill{font-size:11px;border-radius:999px;padding:1px 8px;color:var(--c);border:1px solid var(--c);white-space:nowrap}
+
+/* ---------- repo board ---------- */
+.add{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;flex-wrap:wrap}
+.add input{flex:1;min-width:180px;border:0;background:transparent;padding:6px 8px;font-size:15px}
 .add input:focus{outline:none}
-.add select{border:0;background:var(--soft);border-radius:8px;padding:4px 6px;max-width:120px}
+.summary{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.sum{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 200px}
+.sum.next{flex:2 1 320px;border-color:var(--s-ready)}
+.sum .big{font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+.sum .t{font-weight:700;overflow-wrap:anywhere}
 
-/* stage strip */
-.strip-scroll{overflow-x:auto;scrollbar-width:none;margin-inline:-4px;padding-inline:4px}
+.strip-scroll{overflow-x:auto;scrollbar-width:none}
 .strip{display:flex;gap:6px;min-width:max-content}
 .st{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px 5px 8px;cursor:pointer;font-size:13px}
 .st .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
-.st .n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.st .n{font-family:var(--f-mono);color:var(--muted);font-size:12px}
 .st[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
-.st .arrow{color:var(--line)}
+.arrow{color:var(--line);align-self:center}
 .wip{color:var(--bad)!important;font-weight:700}
 
-/* board */
 .board-scroll{overflow-x:auto;padding-bottom:6px}
-.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px,1fr);gap:10px;min-width:max-content}
-.lane{display:flex;flex-direction:column;gap:8px;min-width:0;background:var(--soft);border-radius:12px;padding:8px;min-height:160px}
+.board{display:grid;grid-auto-flow:column;grid-template-columns:minmax(300px,1.35fr);grid-auto-columns:minmax(240px,1fr);gap:10px;min-width:max-content}
+.lane{display:flex;flex-direction:column;gap:8px;min-width:0;background:var(--soft);border-radius:12px;padding:8px;min-height:180px}
 .lane.drop{outline:2px dashed var(--c);outline-offset:-2px}
 .lane h2{margin:0;font-size:13px;display:flex;align-items:center;gap:8px;padding:2px 4px 4px;border-bottom:2px solid var(--c)}
 .lane h2 .n{font-family:var(--f-mono);color:var(--muted);font-weight:400;margin-left:auto}
-.lane .hint{font-size:11px;color:var(--muted);padding:0 4px}
+.lane .hint{font-size:11px;color:var(--muted);padding:0 4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .empty{color:var(--muted);font-size:12px;padding:14px 6px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 @media (max-width:899px){
   .board-scroll{overflow:visible}
@@ -75,425 +121,620 @@ select.flt{border:1px solid var(--line);background:var(--panel);border-radius:8p
   .lane{display:none;background:transparent;padding:0}
   .lane.active{display:flex}
 }
-
-.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:9px 10px 8px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0;position:relative}
 .card:hover{border-color:var(--muted);border-left-color:var(--c)}
-.card .t{font-weight:700;overflow-wrap:anywhere}
-.meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-.chip{font-size:11px;background:var(--tag);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);white-space:nowrap}
-.chip.mono{font-family:var(--f-mono)}
-.chip.p-高{color:var(--bad);border-color:currentColor}
-.chip.ex{color:var(--warn);border-color:currentColor}
-.card .next{display:flex;gap:6px;flex-wrap:wrap}
-.prog{height:4px;background:var(--soft);border-radius:4px;overflow:hidden}
-.prog i{display:block;height:100%;background:var(--c)}
+.card.dragover{box-shadow:0 -3px 0 var(--accent)}
+.card .top{display:flex;gap:8px;align-items:flex-start}
+.card .rank{font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:22px;padding-top:1px}
+.card .rank.first{color:var(--accent);font-weight:700}
+.card .t{font-weight:700;overflow-wrap:anywhere;flex:1;min-width:0}
+.card .ord{display:flex;flex-direction:column;gap:2px}
+.card .why{font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}
+.card .next{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* proposal */
+.proposal{background:var(--panel);border:1px solid var(--s-ready);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.proposal ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.proposal li small{display:block;color:var(--muted)}
+.stream{font-family:var(--f-mono);font-size:12px;white-space:pre-wrap;color:var(--muted);max-height:120px;overflow:auto;background:var(--soft);border-radius:8px;padding:8px}
 
 /* sheet */
 .scrim{position:fixed;inset:0;background:rgba(10,14,18,.45);z-index:20;display:flex;justify-content:flex-end}
-.sheet{background:var(--bg);width:min(560px,100%);height:100%;overflow-y:auto;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) 16px;padding-top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:14px;border-left:1px solid var(--line)}
-@media (max-width:600px){.scrim{align-items:flex-end}.sheet{height:92%;border-radius:16px 16px 0 0;border-left:0;padding-left:max(16px,env(safe-area-inset-left,0px))}}
+.sheet{background:var(--bg);width:min(580px,100%);height:100%;overflow-y:auto;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) 16px;display:flex;flex-direction:column;gap:14px;border-left:1px solid var(--line)}
+@media (max-width:600px){.scrim{align-items:flex-end}.sheet{height:92%;border-radius:16px 16px 0 0;border-left:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-top:16px}}
 .sheet-h{display:flex;gap:8px;align-items:flex-start}
 .sheet-h input{flex:1;min-width:0;font-size:18px;font-weight:700;border:0;background:transparent;padding:2px 0}
-.field{display:flex;flex-direction:column;gap:4px}
-.field label,.lbl{font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;font-weight:700}
 .field textarea,.field input,.field select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;width:100%}
 .field textarea{min-height:72px;resize:vertical}
 .field textarea.code{font-family:var(--f-mono);font-size:12px;min-height:120px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:420px){.row2{grid-template-columns:1fr}}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:460px){.row2,.row3{grid-template-columns:1fr}}
 .section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .section.act{border-color:var(--c);box-shadow:inset 3px 0 0 var(--c)}
 .section h3{margin:0;font-size:14px;display:flex;gap:8px;align-items:center}
 .checks{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
 .checks li{display:flex;gap:8px;align-items:flex-start}
 .checks input{margin-top:4px;accent-color:var(--ok)}
+.deps{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow:auto}
+.deps label{display:flex;gap:8px;font-size:13px;align-items:flex-start;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
 .timeline{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.timeline span{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
-.btns{display:flex;flex-wrap:wrap;gap:8px}
-.note{font-size:12px;color:var(--muted)}
-.err{color:var(--bad);font-size:12px}
-.stream{font-family:var(--f-mono);font-size:12px;white-space:pre-wrap;color:var(--muted);max-height:140px;overflow:auto;background:var(--soft);border-radius:8px;padding:8px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:40;font-size:13px}
-.banner{font-size:12px;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-@media (prefers-reduced-motion:no-preference){.card{transition:border-color .12s}.sheet{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.picker-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+.pick{display:flex;gap:10px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 10px;cursor:pointer;text-align:left;width:100%}
+.pick:hover{border-color:var(--muted)}
+.pick .nm{font-weight:700}
+.pick .when{margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--f-mono)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:40;font-size:13px;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.card,.repo{transition:border-color .12s}.sheet{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
 </style>
 
-<div class="wrap">
-  <header>
-    <div>
-      <div class="logo">ken<b>ban</b></div>
-      <div class="sub">アイデア → AI実装 → テスト → デプロイ → 確認</div>
-    </div>
-    <div class="spacer"></div>
-    <select class="flt" id="fProject" aria-label="プロジェクトで絞り込み"><option value="">すべてのプロジェクト</option></select>
-    <button class="btn" id="bSettings" type="button">設定</button>
-  </header>
-
-  <form class="add" id="addForm" autocomplete="off">
-    <input id="addInput" placeholder="アイデアをひとこと… 例: 動画の結合前にサムネで並べ替え" aria-label="新しいアイデア">
-    <select id="addProject" aria-label="プロジェクト"></select>
-    <button class="btn primary" type="submit">追加</button>
-  </form>
-
-  <div id="banner" class="banner" hidden></div>
-
-  <div class="strip-scroll"><div class="strip" id="strip"></div></div>
-  <div class="board-scroll"><div class="board" id="board"></div></div>
-</div>
+<div class="wrap" id="app"></div>
 <div id="sheetRoot"></div>
 <div id="toast" class="toast" hidden></div>
 
 <script>
+/* ======================= model ======================= */
 const STAGES=[
- {id:"idea",name:"アイデア",hint:"思いつきを書き溜める"},
- {id:"spec",name:"仕様化",hint:"AIが仕様と受入条件に整える"},
- {id:"queued",name:"AIに指示",hint:"Issue化してClaude Codeに渡す"},
- {id:"building",name:"実装中",hint:"Claude CodeがPRを作成中",wip:3},
+ {id:"backlog",name:"バックログ",hint:"次に作りたいこと。上ほど先にやる"},
+ {id:"ready",name:"次にやる",hint:"仕様と進め方が決まったもの"},
+ {id:"building",name:"AI実装中",hint:"Claude Codeが実装・PR作成",wip:3},
  {id:"testing",name:"テスト",hint:"CIと受入条件をチェック"},
  {id:"deploying",name:"デプロイ",hint:"プレビュー / TestFlight"},
- {id:"verifying",name:"確認",hint:"実機・実画面で確かめる"},
+ {id:"verifying",name:"確認",hint:"実画面・実機で確かめる"},
  {id:"done",name:"完了",hint:"リリース済み"}
 ];
 const SI=Object.fromEntries(STAGES.map((s,i)=>[s.id,i]));
+const ACTIVE=["building","testing","deploying","verifying"];
+const SIZES={S:"S 半日",M:"M 1〜2日",L:"L 3日〜"};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const now=()=>new Date().toISOString();
 const fmt=iso=>{try{const d=new Date(iso);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}catch{return""}};
+const ago=iso=>{const d=(Date.now()-new Date(iso))/864e5;return d<1?"今日":d<30?`${Math.floor(d)}日前`:`${Math.floor(d/30)}か月前`};
+const repoKey=full=>full.replace("/","__");
 
-let db=null, sample=null, cardsCol=null, settingsDoc=null, canWrite=true, live=false;
-let cards=[]; let settings={projects:[{name:"komb",repo:"ktrips/komb",target:"ios"}],defaultProject:"komb"};
-let filter=""; let activeStage="idea"; let openId=null; let busy={};
+let db=null,sample=null,mcp=null,live=false;
+let repos=[],cards=[];
+let view={repo:null,stage:"backlog"};
+let openId=null,busy={},proposal=null,pickerState=null;
+try{const v=JSON.parse(localStorage.getItem("kban.view")||"{}");if(v.repo)view.repo=v.repo;if(v.stage)view.stage=v.stage}catch{}
+function remember(){try{localStorage.setItem("kban.view",JSON.stringify(view))}catch{}}
 
-try{filter=localStorage.getItem("kb.filter")||"";activeStage=localStorage.getItem("kb.stage")||"idea"}catch{}
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2400)}
+async function copy(text,label){try{await navigator.clipboard.writeText(text);toast(label+"をコピーしました")}catch{toast("コピーできませんでした。テキストを選択してコピーしてください")}}
+const repoOf=full=>repos.find(r=>r.full===full)||{full,name:full.split("/")[1]||full,target:"web"};
+const repoCards=full=>cards.filter(c=>c.repo===full);
+const cardById=id=>cards.find(c=>c.id===id);
+const blockers=c=>(c.dependsOn||[]).map(cardById).filter(d=>d&&d.stage!=="done");
+function progress(c){
+  const steps=c.steps||[],crit=c.criteria||[];
+  if(c.stage==="done")return 1;
+  const sd=steps.filter(s=>s.done).length,cd=(c.checked||[]).length;
+  const tot=steps.length+crit.length;
+  const base=SI[c.stage]/(STAGES.length-1);
+  return tot?Math.max(base*.5,(sd+cd)/tot):base;
+}
+function sortStage(list,stage){
+  return list.slice().sort(stage==="backlog"||stage==="ready"
+    ?(a,b)=>(a.rank??1e9)-(b.rank??1e9)||String(a.createdAt).localeCompare(String(b.createdAt))
+    :(a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
 
-function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2200)}
-async function copy(text,label){try{await navigator.clipboard.writeText(text);toast((label||"テキスト")+"をコピーしました")}catch{toast("コピーできませんでした。テキストを長押しで選択してください")}}
-const proj=name=>settings.projects.find(p=>p.name===name)||{name,repo:"",target:"web"};
-
-/* ---------- data ---------- */
-async function save(card){
-  card.updatedAt=now();
+/* ======================= persistence ======================= */
+async function saveCard(c){
+  c.updatedAt=now();
   if(!live){render();return}
-  const {id,...body}=card;
-  try{await cardsCol.doc(id).set(body)}catch(e){toast(e.code==="not_granted"||e.code==="permission_denied"?"保存する権限がありません":"保存できませんでした: "+(e.message||e.code))}
+  const {id,...b}=c;
+  try{await db.collection("cards").doc(id).set(b)}catch(e){toast("保存できませんでした: "+(e.message||e.code))}
 }
-function moveTo(card,stage,why){
-  if(card.stage===stage)return;
-  card.stage=stage; card.history=[...(card.history||[]),{stage,at:now(),why:why||""}].slice(-40);
-  save(card); render();
+async function saveRepo(r){
+  if(!live){render();return}
+  const {id,...b}=r;
+  try{await db.collection("repos").doc(id).set(b)}catch(e){toast("保存できませんでした: "+(e.message||e.code))}
 }
-async function create(title,project){
-  const c={title,idea:title,spec:"",criteria:[],prompt:"",project,target:proj(project).target||"web",priority:"中",stage:"idea",issue:"",pr:"",preview:"",checked:[],feedback:"",history:[{stage:"idea",at:now()}],createdAt:now(),updatedAt:now()};
-  if(live){try{const r=cardsCol.doc();c.id=r.id;const {id,...b}=c;await r.set(b)}catch(e){toast("追加できませんでした: "+(e.message||e.code));return}}
+function moveTo(c,stage,why){
+  if(c.stage===stage)return;
+  if(stage==="building"){const b=blockers(c);if(b.length)toast(`先に「${b[0].title}」が終わっている必要があります(前提)`)}
+  c.stage=stage;
+  if(stage==="ready"||stage==="backlog"){c.rank=nextRank(c.repo,stage)}
+  c.history=[...(c.history||[]),{stage,at:now(),why:why||""}].slice(-40);
+  if(stage==="done"){c.steps=(c.steps||[]).map(s=>({...s,done:true}))}
+  saveCard(c);render();
+}
+function nextRank(full,stage){const r=repoCards(full).filter(c=>c.stage===stage).map(c=>c.rank??0);return (r.length?Math.max(...r):0)+1}
+async function createCard(full,title){
+  const c={repo:full,title,idea:title,spec:"",criteria:[],steps:[],prompt:"",size:"",dependsOn:[],parallel:null,reason:"",target:repoOf(full).target,stage:"backlog",rank:0,issue:"",pr:"",preview:"",checked:[],feedback:"",history:[{stage:"backlog",at:now()}],createdAt:now(),updatedAt:now()};
+  // new ideas go to the bottom of the backlog
+  c.rank=nextRank(full,"backlog");
+  if(live){try{const ref=db.collection("cards").doc();c.id=ref.id;const {id,...b}=c;await ref.set(b)}catch(e){toast("追加できませんでした: "+(e.message||e.code));return}}
   else{c.id="local-"+Math.random().toString(36).slice(2);cards.push(c);render()}
-  toast("アイデアを追加しました");
+  toast("バックログに追加しました");
 }
-async function remove(card){
-  if(live){try{await cardsCol.doc(card.id).delete()}catch(e){toast("削除できませんでした");return}}
-  else{cards=cards.filter(c=>c.id!==card.id);render()}
-  closeSheet();toast("削除しました");
+async function deleteCard(c){
+  if(live){try{await db.collection("cards").doc(c.id).delete()}catch{toast("削除できませんでした");return}}
+  else{cards=cards.filter(x=>x.id!==c.id)}
+  cards.forEach(x=>{if((x.dependsOn||[]).includes(c.id)){x.dependsOn=x.dependsOn.filter(i=>i!==c.id);saveCard(x)}});
+  closeSheet();render();toast("削除しました");
+}
+/** reorder: renumber the list after moving `c` to index `to` */
+async function reorder(c,to){
+  const list=sortStage(repoCards(c.repo).filter(x=>x.stage===c.stage&&x.id!==c.id),c.stage);
+  list.splice(Math.max(0,Math.min(to,list.length)),0,c);
+  const changed=[];
+  list.forEach((x,i)=>{if(x.rank!==i+1){x.rank=i+1;changed.push(x)}});
+  render();
+  for(const x of changed){await saveCard(x)}
 }
 
-/* ---------- AI ---------- */
-async function aiSpec(card){
-  if(!sample){toast("このビューではAIを呼べません。仕様を手で書いてください");return}
-  busy[card.id]="spec";render();renderSheet();
-  const p=proj(card.project);
-  const input=`あなたはモバイル/Webアプリ開発のプロダクトマネージャー兼テックリードです。
-次のアイデアを、Claude Code(GitHub Actions上で動くコーディングエージェント)にそのまま渡せる開発タスクに整えてください。
-プロジェクト: ${card.project}(リポジトリ: ${p.repo||"未設定"}、対象: ${card.target==="ios"?"iOSアプリ(SwiftUI想定)":card.target==="both"?"iOSアプリとWeb":"Webアプリ"})
-アイデア: ${card.idea||card.title}
-${card.feedback?"前回の確認で出た指摘: "+card.feedback:""}
+/* ======================= AI ======================= */
+function repoContext(r){return `リポジトリ: ${r.full}(${r.target==="ios"?"iOSアプリ":r.target==="both"?"iOSアプリ+Web":"Webアプリ"})${r.about?"\n概要: "+r.about:""}`}
+async function aiPrioritize(full){
+  if(!sample)return;
+  const r=repoOf(full);
+  const pool=sortStage(repoCards(full).filter(c=>c.stage==="backlog"||c.stage==="ready"),"backlog");
+  if(pool.length<2){toast("並べ替えるには2件以上必要です");return}
+  const active=repoCards(full).filter(c=>ACTIVE.includes(c.stage)).map(c=>c.title);
+  proposal={repo:full,loading:true,text:"",items:null};render();
+  const input=`あなたは個人開発者のプロダクトマネージャーです。次のバックログについて、何から着手すべきかを決めてください。
+${repoContext(r)}
+いま進行中: ${active.join(" / ")||"なし"}
+基準: ユーザーへの価値が大きい、小さく早く出せる、他の作業の前提になるものを先に。同時に進めても同じ画面やファイルを触らないものは並行可能にする。
 
-JSONだけで返してください。形式:
-{"title":"40字以内の具体的なタスク名","spec":"目的と仕様を箇条書き(各行'- 'で始める、5〜8行)","criteria":["検証できる受入条件を3〜6個"],"prompt":"Claude Codeへの指示文。変更範囲、触るべき箇所の推測、テストの追加方法、完了の定義を含め、最後に『受入条件をすべて満たしたらPRを作成し、PR本文にテスト結果と確認手順を書くこと』で締める"}`;
+バックログ(id: タイトル — 内容):
+${pool.map(c=>`${c.id}: ${c.title} — ${(c.idea||"").slice(0,160)}`).join("\n")}
+
+JSONだけで返す。全件を含め、先にやる順に並べる:
+{"items":[{"id":"…","size":"S|M|L","reason":"なぜこの順番か(40字以内)","dependsOn":["先に終わっている必要があるid"],"parallel":true}]}
+parallel は、すぐ上の項目や進行中の作業と同時に進めても衝突しにくいなら true。`;
   try{
-    const r=await sample.json(input,{modelTier:"default"});
-    if(r&&typeof r==="object"){
-      card.title=String(r.title||card.title).slice(0,80);
-      card.spec=String(r.spec||"");
-      card.criteria=Array.isArray(r.criteria)?r.criteria.map(String).slice(0,8):[];
-      card.prompt=String(r.prompt||"");
-      card.checked=[];
-      if(card.stage==="idea")moveTo(card,"spec","AIで仕様化");else save(card);
-      toast("仕様と受入条件を作りました");
-    }
-  }catch(e){toast(e.code==="not_granted"?"AIの利用が許可されませんでした":e.code==="rate_limited"?"少し待ってからもう一度どうぞ":"AIの応答を読めませんでした")}
-  finally{delete busy[card.id];render();renderSheet()}
+    const res=await sample.json(input,{modelTier:"default",onText:({text})=>{proposal.text=text;const s=$("#propStream");if(s)s.textContent=text.slice(-400)}});
+    const ids=new Set(pool.map(c=>c.id));
+    const items=(res&&Array.isArray(res.items)?res.items:[]).filter(x=>ids.has(x.id));
+    pool.forEach(c=>{if(!items.some(x=>x.id===c.id))items.push({id:c.id,reason:"",dependsOn:[],parallel:null})});
+    proposal={repo:full,loading:false,items};
+  }catch(e){proposal=null;toast(e.code==="not_granted"?"AIの利用が許可されませんでした":e.code==="rate_limited"?"少し待ってからもう一度どうぞ":"AIの提案を読めませんでした")}
+  render();
 }
-async function aiFix(card){
-  if(!sample){return}
-  busy[card.id]="fix";renderSheet();
-  const unmet=(card.criteria||[]).filter((_,i)=>!(card.checked||[]).includes(i));
-  const input=`Claude Codeに差し戻しの修正指示を書いてください。日本語、200〜400字、手順が明確な指示文だけを返す。
-タスク: ${card.title}
-PR: ${card.pr||"不明"}
+async function applyProposal(){
+  const p=proposal;if(!p||!p.items)return;
+  const list=p.items.map(x=>({x,c:cardById(x.id)})).filter(o=>o.c);
+  for(let i=0;i<list.length;i++){const {x,c}=list[i];
+    c.rank=i+1; if(["S","M","L"].includes(x.size))c.size=x.size;
+    c.reason=String(x.reason||"").slice(0,80);
+    c.dependsOn=(x.dependsOn||[]).filter(id=>cardById(id)&&id!==c.id);
+    c.parallel=typeof x.parallel==="boolean"?x.parallel:null;
+  }
+  proposal=null;render();
+  for(const {c} of list){await saveCard(c)}
+  toast("提案の順番にしました");
+}
+async function aiPlan(c){
+  if(!sample){toast("このビューではAIを呼べません。手で書いてください");return}
+  busy[c.id]="plan";render();renderSheet();
+  const r=repoOf(c.repo);
+  const others=repoCards(c.repo).filter(x=>x.id!==c.id&&x.stage!=="done").map(x=>`${x.id}: ${x.title}`).join("\n");
+  const input=`あなたはモバイル/Webアプリ開発のテックリードです。次のアイデアを、GitHub Actions上のClaude Codeにそのまま渡せる開発タスクに整え、進め方を決めてください。
+${repoContext(r)}
+アイデア: ${c.idea||c.title}
+${c.feedback?"前回の確認で出た指摘: "+c.feedback:""}
+同じリポジトリの他のタスク(id: タイトル):
+${others||"なし"}
+
+JSONだけで返す:
+{"title":"40字以内の具体的なタスク名","spec":"目的と仕様の箇条書き。各行'- 'で始め4〜7行","steps":["進め方を3〜6ステップ。1つのPRで終わる大きさに分け、順番に並べる"],"criteria":["検証できる受入条件を3〜5個"],"size":"S|M|L","dependsOn":["先に終わっている必要がある他タスクのid"],"prompt":"Claude Codeへの指示。変更範囲、触る場所の見当、進め方のステップ、追加するテスト、完了の定義を含め、『受入条件をすべて満たしたらPRを作成し、本文に Closes #<Issue番号>、テスト結果、確認手順を書くこと』で締める"}`;
+  try{
+    const v=await sample.json(input,{modelTier:"default"});
+    if(v&&typeof v==="object"){
+      c.title=String(v.title||c.title).slice(0,80);
+      c.spec=String(v.spec||"");
+      c.steps=(Array.isArray(v.steps)?v.steps:[]).map(t=>({text:String(t),done:false})).slice(0,8);
+      c.criteria=(Array.isArray(v.criteria)?v.criteria:[]).map(String).slice(0,8);c.checked=[];
+      if(["S","M","L"].includes(v.size))c.size=v.size;
+      c.dependsOn=(v.dependsOn||[]).filter(id=>cardById(id)&&id!==c.id);
+      c.prompt=String(v.prompt||"");
+      if(c.stage==="backlog")moveTo(c,"ready","AIで仕様と進め方を作成");else saveCard(c);
+      toast("仕様と進め方を作りました");
+    }
+  }catch(e){toast(e.code==="not_granted"?"AIの利用が許可されませんでした":"AIの応答を読めませんでした")}
+  finally{delete busy[c.id];render();renderSheet()}
+}
+async function aiFix(c){
+  if(!sample)return;
+  busy[c.id]="fix";renderSheet();
+  const unmet=(c.criteria||[]).filter((_,i)=>!(c.checked||[]).includes(i));
+  const input=`Claude Codeへの差し戻しの修正指示を書いてください。日本語で200〜400字、指示文だけを返す。
+タスク: ${c.title}
+PR: ${c.pr||"不明"}
 満たしていない受入条件: ${unmet.join(" / ")||"なし"}
-確認での指摘: ${card.feedback||"なし"}
-元の指示: ${card.prompt}`;
-  try{const r=await sample(input,{modelTier:"default"});card.prompt=r.text.trim()+"\n\n(元の指示)\n"+card.prompt.split("\n\n(元の指示)\n").pop();moveTo(card,"queued","差し戻し");toast("修正指示を作りました。もう一度AIに渡してください")}
-  catch(e){toast("修正指示を作れませんでした")}
-  finally{delete busy[card.id];render();renderSheet()}
+確認での指摘: ${c.feedback||"なし"}`;
+  try{const r=await sample(input,{modelTier:"default"});c.fix=r.text.trim();moveTo(c,"building","差し戻し");toast("修正指示を作りました。PRにコメントしてください")}
+  catch{toast("修正指示を作れませんでした")}
+  finally{delete busy[c.id];render();renderSheet()}
 }
 
-/* ---------- GitHub handoff ---------- */
-function issueBody(card){
-  const p=proj(card.project);
-  return `<!-- kenban:card=${card.id} -->
-<!-- kenban:target=${card.target} -->
+/* ======================= GitHub handoff ======================= */
+function issueBody(c){
+  const deps=blockers(c).map(d=>d.issue?`#${d.issue}`:d.title);
+  return `<!-- kban:v1 -->
 ## 背景
-${card.idea||card.title}
+${c.idea||c.title}
 
 ## 仕様
-${card.spec||"- (未記入)"}
+${c.spec||"- (未記入)"}
+
+## 進め方
+${(c.steps||[]).map(s=>"- [ ] "+s.text).join("\n")||"- [ ] (未記入)"}
 
 ## 受入条件
-${(card.criteria||[]).map(c=>"- [ ] "+c).join("\n")||"- [ ] (未記入)"}
+${(c.criteria||[]).map(t=>"- [ ] "+t).join("\n")||"- [ ] (未記入)"}
+
+## 前提
+${deps.length?deps.map(d=>"- "+d).join("\n"):"- なし"}
 
 ## Claude Codeへの指示
-${card.prompt||"上記の仕様と受入条件を満たす実装を行い、PRを作成してください。"}
+${c.prompt||"上記の仕様と受入条件を満たす実装を行い、PRを作成してください。"}
 
 ---
-対象: ${card.target} / 優先度: ${card.priority} / kenbanから作成`;
+サイズ: ${c.size||"-"} / kbanから作成`;
 }
-function issueUrl(card){
-  const p=proj(card.project); if(!p.repo)return "";
-  const labels=["kenban","claude",`kenban:${card.target}`].join(",");
-  return `https://github.com/${p.repo}/issues/new?title=${encodeURIComponent(card.title)}&labels=${encodeURIComponent(labels)}&body=${encodeURIComponent(issueBody(card))}`;
+function issueUrl(c){
+  const labels=["kban","claude","kban:building",`kban:${c.target||"web"}`,c.size?`kban:size-${c.size}`:""].filter(Boolean).join(",");
+  return `https://github.com/${c.repo}/issues/new?title=${encodeURIComponent(c.title)}&labels=${encodeURIComponent(labels)}&body=${encodeURIComponent(issueBody(c))}`;
 }
+function fixComment(c){return `@claude 確認で差し戻します。次の点を修正して、同じPRに追加コミットしてください。\n\n${c.fix||c.feedback}`}
 
-/* ---------- render board ---------- */
-function visible(){return cards.filter(c=>!filter||c.project===filter)}
+/* ======================= render ======================= */
 function render(){
-  const vis=visible();
-  const by=Object.fromEntries(STAGES.map(s=>[s.id,[]]));
-  vis.forEach(c=>(by[c.stage]||by.idea).push(c));
-  const pr={"高":0,"中":1,"低":2};
-  Object.values(by).forEach(a=>a.sort((x,y)=>(pr[x.priority]??1)-(pr[y.priority]??1)||String(y.updatedAt).localeCompare(String(x.updatedAt))));
-
-  $("#strip").innerHTML=STAGES.map((s,i)=>{
-    const n=by[s.id].length, over=s.wip&&n>s.wip;
-    return `${i?'<span class="arrow" aria-hidden="true">›</span>':""}<button type="button" class="st" style="--c:var(--s-${s.id})" data-stage="${s.id}" aria-pressed="${activeStage===s.id}"><span class="dot"></span>${s.name}<span class="n ${over?"wip":""}">${n}${s.wip?"/"+s.wip:""}</span></button>`}).join("");
-
-  $("#board").innerHTML=STAGES.map(s=>`
-    <section class="lane ${activeStage===s.id?"active":""}" style="--c:var(--s-${s.id})" data-lane="${s.id}" aria-label="${s.name}">
-      <h2>${s.name}<span class="n">${by[s.id].length}</span></h2>
-      <div class="hint">${s.hint}</div>
-      ${by[s.id].map(cardHTML).join("")||`<div class="empty">${s.id==="idea"?"上の入力欄からアイデアを追加":"ここに来るカードはまだありません"}</div>`}
-    </section>`).join("");
-
-  const opts=settings.projects.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("");
-  $("#fProject").innerHTML=`<option value="">すべてのプロジェクト</option>`+opts; $("#fProject").value=filter;
-  const ap=$("#addProject"), cur=ap.value||filter||settings.defaultProject; ap.innerHTML=opts; ap.value=settings.projects.some(p=>p.name===cur)?cur:(settings.projects[0]?.name||"");
+  if(view.repo&&!repos.some(r=>r.full===view.repo)&&repos.length)view.repo=null;
+  $("#app").innerHTML=view.repo?renderRepo():renderHome();
+}
+function stagesBar(list){
+  const total=list.length||1;
+  return `<div class="prog" aria-hidden="true">${STAGES.map(s=>{const n=list.filter(c=>c.stage===s.id).length;return n?`<i style="width:${n/total*100}%;background:var(--s-${s.id})"></i>`:""}).join("")}</div>`;
+}
+function renderHome(){
+  const act=sortStage(cards.filter(c=>ACTIVE.includes(c.stage)),"building");
+  const tiles=repos.slice().sort((a,b)=>(a.order??0)-(b.order??0)).map(r=>{
+    const l=repoCards(r.full);
+    const cnt=id=>l.filter(c=>c.stage===id).length;
+    const nexts=sortStage(l.filter(c=>c.stage==="ready"),"ready").concat(sortStage(l.filter(c=>c.stage==="backlog"),"backlog")).slice(0,2);
+    const doneRate=l.length?Math.round(cnt("done")/l.length*100):0;
+    return `<button type="button" class="repo" data-go="${esc(r.full)}">
+      <div><div class="nm">${esc(r.name)}</div><div class="full">${esc(r.full)} · ${r.target==="ios"?"iOS":r.target==="both"?"iOS+Web":"Web"}</div></div>
+      <div class="counts">
+        <div><b>${cnt("backlog")+cnt("ready")}</b><span>未着手</span></div>
+        <div><b>${l.filter(c=>ACTIVE.includes(c.stage)).length}</b><span>進行中</span></div>
+        <div><b>${cnt("done")}</b><span>完了</span></div>
+        <div><b>${doneRate}<small>%</small></b><span>完了率</span></div>
+      </div>
+      ${stagesBar(l)}
+      <div class="nexts">${nexts.length?nexts.map((c,i)=>`<div>${i?"その次":"次にやる"}: ${esc(c.title)}</div>`).join(""):"<div>バックログは空です。アイデアを書き込みましょう</div>"}</div>
+    </button>`}).join("");
+  return `
+  <header>
+    <button class="logo" type="button" data-home aria-label="ホーム">k<b>ban</b></button>
+    <div class="sub">リポジトリごとのバックログから、AIで実装・テスト・デプロイ・確認まで</div>
+    <div class="spacer"></div>
+  </header>
+  ${bannerHTML()}
+  <div class="home-grid">${tiles}<button type="button" class="repo add" data-act="pick"><b>+ リポジトリを追加</b><span class="note">GitHubから選ぶか、owner/repo を入力</span></button></div>
+  <div class="legend">${STAGES.map(s=>`<span><i style="background:var(--s-${s.id})"></i>${s.name}</span>`).join("")}</div>
+  <section class="overview" aria-label="並行して進めている作業">
+    <div class="btns" style="justify-content:space-between"><h1>並行して進めている作業 <span class="num note">${act.length}件</span></h1><span class="note">すべてのリポジトリの AI実装中〜確認</span></div>
+    ${act.length?act.map(c=>{const s=STAGES[SI[c.stage]],b=blockers(c);return `<div class="ov-row" data-open="${c.id}" data-repo="${esc(c.repo)}">
+      <span class="r">${esc(repoOf(c.repo).name)}</span>
+      <span class="t">${esc(c.title)} ${b.length?'<span class="chip wait">前提待ち</span>':""}</span>
+      <span class="stagepill" style="--c:var(--s-${c.stage})">${s.name} ${Math.round(progress(c)*100)}%</span></div>`}).join(""):'<div class="note">いま進行中の作業はありません。各リポジトリの「次にやる」からAIに渡しましょう。</div>'}
+  </section>`;
+}
+function renderRepo(){
+  const r=repoOf(view.repo), l=repoCards(r.full);
+  const by=Object.fromEntries(STAGES.map(s=>[s.id,sortStage(l.filter(c=>c.stage===s.id),s.id)]));
+  const next=by.ready[0]||by.backlog[0];
+  const act=l.filter(c=>ACTIVE.includes(c.stage));
+  const doneN=by.done.length, rate=l.length?Math.round(l.reduce((a,c)=>a+progress(c),0)/l.length*100):0;
+  return `
+  <header>
+    <div class="crumb"><button class="logo" type="button" data-home aria-label="リポジトリ一覧へ">k<b>ban</b></button><span class="sep">/</span>
+      <select id="repoSel" aria-label="リポジトリを切り替え">${repos.map(x=>`<option value="${esc(x.full)}" ${x.full===r.full?"selected":""}>${esc(x.name)}</option>`).join("")}<option value="__add">+ 追加…</option></select></div>
+    <span class="chip mono">${esc(r.full)}</span>
+    <div class="spacer"></div>
+    <a class="btn small" href="https://github.com/${esc(r.full)}/issues?q=label%3Akban" target="_blank" rel="noopener">GitHubのIssue</a>
+    <button class="btn small" type="button" data-act="repo-settings">リポジトリ設定</button>
+  </header>
+  ${bannerHTML()}
+  <form class="add" id="addForm" autocomplete="off">
+    <input id="addInput" placeholder="${esc(r.name)} で次に作りたいことを書く…" aria-label="バックログに追加">
+    <button class="btn primary" type="submit">バックログに追加</button>
+  </form>
+  <div class="summary">
+    <div class="sum next"><span class="lbl">次にやる</span>${next?`<span class="t">${esc(next.title)}</span><span class="note">${next.reason?esc(next.reason):next.stage==="ready"?"仕様と進め方ができています":"まず仕様と進め方を作りましょう"}</span><div class="btns">${next.stage==="ready"?`<button class="btn small primary" data-act="open" data-id="${next.id}">AIに渡す</button>`:`<button class="btn small primary" data-act="plan" data-id="${next.id}" ${busy[next.id]||!sample?"disabled":""}>AIで進め方を作る</button>`}</div>`:'<span class="note">バックログにアイデアを書き込むと、ここに次の一手が出ます</span>'}</div>
+    <div class="sum"><span class="lbl">並行して進行中</span><span class="big">${act.length}<small class="note"> / WIP 3</small></span><span class="note">${act.filter(c=>blockers(c).length).length?`${act.filter(c=>blockers(c).length).length}件が前提待ち`:act.length>3?"多すぎます。絞りましょう":"同時に進めるのは3件まで"}</span></div>
+    <div class="sum"><span class="lbl">どこまで終わったか</span><span class="big">${rate}<small class="note">%</small></span>${stagesBar(l)}<span class="note">完了 ${doneN} / 全 ${l.length} 件</span></div>
+  </div>
+  <div class="strip-scroll"><div class="strip">${STAGES.map((s,i)=>{const n=by[s.id].length,over=s.wip&&n>s.wip;return `${i?'<span class="arrow" aria-hidden="true">›</span>':""}<button type="button" class="st" style="--c:var(--s-${s.id})" data-stage="${s.id}" aria-pressed="${view.stage===s.id}"><span class="dot"></span>${s.name}<span class="n ${over?"wip":""}">${n}${s.wip?"/"+s.wip:""}</span></button>`}).join("")}</div></div>
+  ${proposalHTML(r)}
+  <div class="board-scroll"><div class="board">${STAGES.map(s=>laneHTML(s,by[s.id],r)).join("")}</div></div>`;
+}
+function proposalHTML(r){
+  const p=proposal; if(!p||p.repo!==r.full)return "";
+  if(p.loading)return `<div class="proposal"><h1>AIが優先順位を考えています…</h1><div class="stream" id="propStream">${esc((p.text||"").slice(-400))}</div></div>`;
+  return `<div class="proposal"><div class="btns" style="justify-content:space-between"><h1>AIの提案: この順番で進める</h1><div class="btns"><button class="btn small primary" data-act="apply-prop">この順番にする</button><button class="btn small" data-act="drop-prop">やめる</button></div></div>
+  <ol>${p.items.map(x=>{const c=cardById(x.id);if(!c)return"";const deps=(x.dependsOn||[]).map(cardById).filter(Boolean);return `<li><b>${esc(c.title)}</b> ${x.size?`<span class="chip">${esc(x.size)}</span>`:""} ${x.parallel?'<span class="chip par">並行可</span>':""}<small>${esc(x.reason||"")}${deps.length?" · 前提: "+deps.map(d=>esc(d.title)).join("、"):""}</small></li>`}).join("")}</ol></div>`;
+}
+function laneHTML(s,list,r){
+  const tools=s.id==="backlog"?`<button class="btn icon" data-act="prioritize" ${!sample||list.length+repoCards(r.full).filter(c=>c.stage==="ready").length<2?"disabled":""} title="バックログと次にやるの順番をAIが提案">AIで優先順位</button>`:"";
+  return `<section class="lane ${view.stage===s.id?"active":""}" style="--c:var(--s-${s.id})" data-lane="${s.id}" aria-label="${s.name}">
+    <h2>${s.name}<span class="n">${list.length}${s.wip?" / "+s.wip:""}</span></h2>
+    <div class="hint">${s.hint} ${tools}</div>
+    ${list.map((c,i)=>cardHTML(c,i,list.length)).join("")||`<div class="empty">${s.id==="backlog"?"上の欄から書き込む":"まだありません"}</div>`}
+  </section>`;
+}
+function cardHTML(c,i,n){
+  const ordered=c.stage==="backlog"||c.stage==="ready";
+  const b=blockers(c), steps=c.steps||[], sd=steps.filter(s=>s.done).length, crit=c.criteria||[];
+  const pct=Math.round(progress(c)*100);
+  return `<article class="card" tabindex="0" draggable="true" style="--c:var(--s-${c.stage})" data-id="${c.id}">
+    <div class="top">
+      ${ordered?`<span class="rank ${i===0?"first":""}">${i+1}</span>`:""}
+      <div class="t">${esc(c.title)}</div>
+      ${ordered?`<div class="ord"><button class="btn icon" data-act="up" data-id="${c.id}" ${i===0?"disabled":""} aria-label="上へ">▲</button><button class="btn icon" data-act="down" data-id="${c.id}" ${i===n-1?"disabled":""} aria-label="下へ">▼</button></div>`:""}
+    </div>
+    <div class="meta">
+      ${c.size?`<span class="chip">${esc(c.size)}</span>`:""}
+      ${steps.length?`<span class="chip">進め方 ${sd}/${steps.length}</span>`:""}
+      ${["testing","verifying"].includes(c.stage)&&crit.length?`<span class="chip">受入 ${(c.checked||[]).length}/${crit.length}</span>`:""}
+      ${b.length?`<span class="chip wait" title="${esc(b.map(x=>x.title).join("、"))}">前提待ち ${b.length}</span>`:c.parallel&&ordered?'<span class="chip par">並行可</span>':""}
+      ${c.issue?`<span class="chip mono">#${esc(c.issue)}</span>`:""}
+      ${c.example?'<span class="chip ex">例</span>':""}
+    </div>
+    ${c.reason&&ordered?`<div class="why">${esc(c.reason)}</div>`:""}
+    ${!ordered&&c.stage!=="done"?`<div class="prog" aria-label="進み具合 ${pct}%"><i style="width:${pct}%;background:var(--c)"></i></div>`:""}
+    ${nextAction(c)}
+  </article>`;
 }
 function nextAction(c){
   const b=busy[c.id];
-  switch(c.stage){
-    case "idea":return `<button class="btn small primary" data-act="spec" data-id="${c.id}" ${b||!sample?"disabled":""}>${b?"仕様化中…":"AIで仕様化"}</button>`;
-    case "spec":return `<button class="btn small primary" data-act="open" data-id="${c.id}">AIに渡す</button>`;
-    case "queued":return c.issue?`<span class="chip mono">#${esc(c.issue)}</span><span class="note">Claude Code待ち</span>`:`<span class="note">Issue番号を入力</span>`;
-    case "building":return c.pr?`<span class="chip mono">PR</span>`:`<span class="note">PR待ち</span>`;
-    case "testing":{const n=(c.criteria||[]).length,k=(c.checked||[]).length;return `<span class="note">受入条件 ${k}/${n}</span>`}
-    case "deploying":return c.preview?`<span class="chip">プレビューあり</span>`:`<span class="note">プレビューURL待ち</span>`;
-    case "verifying":return `<button class="btn small" data-act="open" data-id="${c.id}">確認する</button>`;
-    default:return "";
-  }
+  if(c.stage==="backlog")return `<div class="next"><button class="btn small" data-act="plan" data-id="${c.id}" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで進め方を作る"}</button></div>`;
+  if(c.stage==="ready")return `<div class="next"><button class="btn small primary" data-act="open" data-id="${c.id}">AIに渡す</button></div>`;
+  if(c.stage==="building")return `<div class="next note">${c.pr?"PRあり":c.issue?"Claude Codeが作業中":"Issue番号を記録"}</div>`;
+  if(c.stage==="verifying")return `<div class="next"><button class="btn small" data-act="open" data-id="${c.id}">確認する</button></div>`;
+  return "";
 }
-function cardHTML(c){
-  const n=(c.criteria||[]).length,k=(c.checked||[]).length;
-  return `<article class="card" tabindex="0" draggable="true" style="--c:var(--s-${c.stage})" data-id="${c.id}">
-    <div class="t">${esc(c.title)}</div>
-    <div class="meta">
-      <span class="chip">${esc(c.project||"—")}</span>
-      <span class="chip">${c.target==="ios"?"iOS":c.target==="both"?"iOS+Web":"Web"}</span>
-      ${c.priority==="高"?'<span class="chip p-高">優先度 高</span>':""}
-      ${c.example?'<span class="chip ex">例</span>':""}
-      ${c.issue?`<span class="chip mono">#${esc(c.issue)}</span>`:""}
-    </div>
-    ${["testing","verifying"].includes(c.stage)&&n?`<div class="prog" aria-label="受入条件 ${k}/${n}"><i style="width:${n?k/n*100:0}%"></i></div>`:""}
-    <div class="next">${nextAction(c)}</div>
-  </article>`;
-}
+function bannerHTML(){return bannerMsg?`<div class="banner">${esc(bannerMsg)}</div>`:""}
+let bannerMsg="";
 
-/* ---------- sheet ---------- */
+/* ======================= card sheet ======================= */
 function openSheet(id){openId=id;renderSheet()}
-function closeSheet(){openId=null;$("#sheetRoot").innerHTML=""}
+function closeSheet(){openId=null;pickerState=null;$("#sheetRoot").innerHTML=""}
 function renderSheet(){
-  const c=cards.find(x=>x.id===openId); const root=$("#sheetRoot");
+  if(pickerState){renderPicker();return}
+  const c=cardById(openId),root=$("#sheetRoot");
   if(!c){root.innerHTML="";return}
-  const s=STAGES[SI[c.stage]]||STAGES[0], b=busy[c.id];
-  const p=proj(c.project), url=issueUrl(c);
+  const s=STAGES[SI[c.stage]],b=busy[c.id],bl=blockers(c);
   const crit=(c.criteria||[]).map((t,i)=>`<li><input type="checkbox" id="ck${i}" data-ck="${i}" ${(c.checked||[]).includes(i)?"checked":""}><label for="ck${i}">${esc(t)}</label></li>`).join("");
+  const steps=(c.steps||[]).map((t,i)=>`<li><input type="checkbox" id="sp${i}" data-sp="${i}" ${t.done?"checked":""}><label for="sp${i}">${esc(t.text)}</label></li>`).join("");
   let action="";
-  if(c.stage==="idea"||c.stage==="spec"){
-    action=`<div class="section act" style="--c:var(--s-${c.stage})"><h3>${c.stage==="idea"?"1. AIで仕様化":"2. Claude Codeに渡す"}</h3>
-      ${c.stage==="idea"?`<p class="note">アイデアから、目的・仕様・受入条件・Claude Codeへの指示文を作ります。</p>
-        <div class="btns"><button class="btn primary" data-act="spec" ${b||!sample?"disabled":""}>${b?"仕様化中…":"AIで仕様化"}</button><button class="btn" data-act="skip-spec">手で書く</button></div>`
-      :`<p class="note">GitHubにIssueを作ると、<code>claude</code>ラベルでClaude Codeが起動し、ブランチとPRを作ります。</p>
-        ${url?`<div class="btns"><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">GitHubでIssueを作成</a><button class="btn" data-act="copy-body">本文をコピー</button></div>`
-        :`<p class="err">設定で「${esc(c.project)}」のリポジトリを登録してください。</p><div class="btns"><button class="btn" data-act="copy-body">本文をコピー</button></div>`}
-        <div class="row2"><div class="field"><label for="fIssue">作成したIssue番号</label><input id="fIssue" inputmode="numeric" value="${esc(c.issue)}" placeholder="例: 12"></div>
-        <div class="field" style="justify-content:flex-end"><button class="btn" data-act="queued">AIに指示済みにする</button></div></div>`}
-    </div>`;
-  } else if(c.stage==="queued"||c.stage==="building"){
-    action=`<div class="section act" style="--c:var(--s-${c.stage})"><h3>${c.stage==="queued"?"3. Claude Codeの着手待ち":"4. 実装中"}</h3>
-      <p class="note">連携ワークフローを入れたリポジトリでは、PRが開くと自動で「テスト」に進みます。手動で進めることもできます。</p>
+  switch(c.stage){
+    case "backlog":action=`<h3>1. 仕様と進め方を決める</h3><p class="note">AIがアイデアを仕様・進め方のステップ・受入条件・Claude Codeへの指示にまとめ、「次にやる」に移します。</p>
+      <div class="btns"><button class="btn primary" data-act="plan" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで進め方を作る"}</button><button class="btn" data-act="to-ready">手で書いて次にやるへ</button></div>`;break;
+    case "ready":action=`<h3>2. Claude Code に渡す</h3>
+      ${bl.length?`<p class="err">前提がまだ終わっていません: ${bl.map(x=>esc(x.title)).join("、")}</p>`:""}
+      <p class="note">GitHubで <code>claude</code> ラベル付きのIssueを作ると、Claude Codeが実装を始めてPRを作ります。</p>
+      <div class="btns"><a class="btn primary" href="${esc(issueUrl(c))}" target="_blank" rel="noopener">GitHubでIssueを作成</a><button class="btn" data-act="copy-body">本文をコピー</button></div>
+      <div class="row2"><div class="field"><label for="fIssue">作成したIssue番号</label><input id="fIssue" inputmode="numeric" value="${esc(c.issue)}" placeholder="例: 12"></div>
+      <div class="field" style="justify-content:flex-end"><button class="btn" data-act="to-building">AI実装中にする</button></div></div>`;break;
+    case "building":action=`<h3>3. AI実装中</h3>
+      ${c.fix?`<div class="field"><label>差し戻しコメント(PRに貼る)</label><textarea readonly class="code">${esc(fixComment(c))}</textarea><div class="btns"><button class="btn small" data-act="copy-fix">コメントをコピー</button>${c.pr?`<a class="btn small" href="${esc(c.pr)}" target="_blank" rel="noopener">PRを開く</a>`:""}</div></div>`:""}
       <div class="row2"><div class="field"><label for="fIssue">Issue番号</label><input id="fIssue" inputmode="numeric" value="${esc(c.issue)}"></div>
       <div class="field"><label for="fPr">PRのURL</label><input id="fPr" value="${esc(c.pr)}" placeholder="https://github.com/…/pull/…"></div></div>
-      <div class="btns">${c.issue&&p.repo?`<a class="btn" target="_blank" rel="noopener" href="https://github.com/${esc(p.repo)}/issues/${esc(c.issue)}">Issueを開く</a>`:""}
-      ${c.stage==="queued"?`<button class="btn" data-act="building">着手を記録</button>`:""}<button class="btn primary" data-act="testing">PRができた → テストへ</button></div></div>`;
-  } else if(c.stage==="testing"){
-    action=`<div class="section act" style="--c:var(--s-testing)"><h3>5. テスト</h3>
-      <p class="note">CIの結果とPR本文を見て、受入条件をチェックします。</p>
-      ${c.pr?`<a class="btn" target="_blank" rel="noopener" href="${esc(c.pr)}">PRを開く</a>`:""}
+      <div class="btns">${c.issue?`<a class="btn" target="_blank" rel="noopener" href="https://github.com/${esc(c.repo)}/issues/${esc(c.issue)}">Issueを開く</a>`:""}<button class="btn primary" data-act="to-testing">PRができた → テストへ</button></div>`;break;
+    case "testing":action=`<h3>4. テスト</h3><p class="note">CIの結果とPR本文を見て、受入条件をチェックします。</p>
+      ${c.pr?`<div class="btns"><a class="btn" target="_blank" rel="noopener" href="${esc(c.pr)}">PRを開く</a></div>`:""}
       <ul class="checks">${crit||'<li class="note">受入条件がありません</li>'}</ul>
       <div class="field"><label for="fFb">指摘(差し戻すとき)</label><textarea id="fFb" placeholder="例: 横向きでボタンが切れる">${esc(c.feedback)}</textarea></div>
-      <div class="btns"><button class="btn primary" data-act="deploying">テスト合格 → デプロイへ</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div></div>`;
-  } else if(c.stage==="deploying"){
-    action=`<div class="section act" style="--c:var(--s-deploying)"><h3>6. デプロイ</h3>
-      <p class="note">WebはPRごとのプレビューURL、iOSはTestFlightのビルドを記録します。</p>
-      <div class="field"><label for="fPrev">プレビューURL / TestFlightビルド</label><input id="fPrev" value="${esc(c.preview)}" placeholder="https://… または build 1.4 (37)"></div>
-      <div class="btns"><button class="btn primary" data-act="verifying">デプロイ済み → 確認へ</button></div></div>`;
-  } else if(c.stage==="verifying"){
-    action=`<div class="section act" style="--c:var(--s-verifying)"><h3>7. 確認</h3>
-      ${/^https?:/.test(c.preview)?`<a class="btn" target="_blank" rel="noopener" href="${esc(c.preview)}">プレビューを開く</a>`:c.preview?`<span class="chip">${esc(c.preview)}</span>`:""}
+      <div class="btns"><button class="btn primary" data-act="to-deploying">合格 → デプロイへ</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div>`;break;
+    case "deploying":action=`<h3>5. デプロイ</h3><p class="note">WebはPRのプレビューURL、iOSはTestFlightのビルドを記録します。</p>
+      <div class="field"><label for="fPrev">プレビューURL / TestFlightビルド</label><input id="fPrev" value="${esc(c.preview)}" placeholder="https://… または TestFlight 1.4 (37)"></div>
+      <div class="btns"><button class="btn primary" data-act="to-verifying">デプロイ済み → 確認へ</button></div>`;break;
+    case "verifying":action=`<h3>6. 確認</h3>
+      ${/^https?:/.test(c.preview)?`<div class="btns"><a class="btn" target="_blank" rel="noopener" href="${esc(c.preview)}">プレビューを開く</a></div>`:c.preview?`<span class="chip">${esc(c.preview)}</span>`:""}
       <ul class="checks">${crit||'<li class="note">受入条件がありません</li>'}</ul>
       <div class="field"><label for="fFb">気になった点</label><textarea id="fFb">${esc(c.feedback)}</textarea></div>
-      <div class="btns"><button class="btn primary" data-act="done">OK → 完了</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div></div>`;
-  } else {
-    action=`<div class="section"><h3>完了</h3><p class="note">${fmt((c.history||[]).slice(-1)[0]?.at)} にリリース。</p><div class="btns"><button class="btn" data-act="reopen">続きのアイデアをつくる</button></div></div>`;
+      <div class="btns"><button class="btn primary" data-act="to-done">OK → 完了</button><button class="btn" data-act="fix" ${b||!sample?"disabled":""}>${b?"作成中…":"AIで修正指示を作って差し戻す"}</button></div>`;break;
+    default:action=`<h3>完了</h3><p class="note">${fmt((c.history||[]).slice(-1)[0]?.at)} に完了。</p><div class="btns"><button class="btn" data-act="followup">続きのアイデアをバックログへ</button></div>`;
   }
-
-  root.innerHTML=`<div class="scrim" data-act="close"><aside class="sheet" role="dialog" aria-modal="true" aria-label="カードの詳細" style="--c:var(--s-${c.stage})">
-    <div class="sheet-h"><input id="fTitle" value="${esc(c.title)}" aria-label="タイトル"><button class="btn small ghost" data-act="close" aria-label="閉じる">閉じる</button></div>
-    <div class="meta"><span class="chip" style="color:var(--s-${c.stage});border-color:currentColor">${s.name}</span>${c.example?'<span class="chip ex">例のカード</span>':""}</div>
-    ${action}
-    <div class="row2">
-      <div class="field"><label for="fProj">プロジェクト</label><select id="fProj">${settings.projects.map(p=>`<option ${p.name===c.project?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
-      <div class="field"><label for="fTarget">対象</label><select id="fTarget">${[["web","Web"],["ios","iOS"],["both","iOS+Web"]].map(([v,l])=>`<option value="${v}" ${c.target===v?"selected":""}>${l}</option>`).join("")}</select></div>
-      <div class="field"><label for="fPri">優先度</label><select id="fPri">${["高","中","低"].map(v=>`<option ${c.priority===v?"selected":""}>${v}</option>`).join("")}</select></div>
+  const others=repoCards(c.repo).filter(x=>x.id!==c.id&&x.stage!=="done");
+  $("#sheetRoot").innerHTML=`<div class="scrim" data-scrim><aside class="sheet" role="dialog" aria-modal="true" aria-label="カードの詳細" style="--c:var(--s-${c.stage})">
+    <div class="sheet-h"><input id="fTitle" value="${esc(c.title)}" aria-label="タイトル"><button class="btn small ghost" data-act="close">閉じる</button></div>
+    <div class="meta"><span class="stagepill" style="--c:var(--s-${c.stage})">${s.name}</span><span class="chip">${esc(repoOf(c.repo).name)}</span>${c.example?'<span class="chip ex">例のカード</span>':""}<span class="note">進み具合 ${Math.round(progress(c)*100)}%</span></div>
+    <div class="section act">${action}</div>
+    <div class="section"><h3>進め方</h3><ul class="checks">${steps||'<li class="note">まだありません。AIで作るか、下の欄に1行ずつ書きます</li>'}</ul></div>
+    <div class="row3">
       <div class="field"><label for="fStage">工程</label><select id="fStage">${STAGES.map(x=>`<option value="${x.id}" ${x.id===c.stage?"selected":""}>${x.name}</option>`).join("")}</select></div>
+      <div class="field"><label for="fSize">サイズ</label><select id="fSize"><option value="">未定</option>${Object.entries(SIZES).map(([k,v])=>`<option value="${k}" ${c.size===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field"><label for="fTarget">対象</label><select id="fTarget">${[["web","Web"],["ios","iOS"],["both","iOS+Web"]].map(([v,l])=>`<option value="${v}" ${c.target===v?"selected":""}>${l}</option>`).join("")}</select></div>
     </div>
+    <div class="field"><label>前提(先に終わっている必要があるもの)</label><div class="deps">${others.length?others.map(o=>`<label><input type="checkbox" data-dep="${o.id}" ${(c.dependsOn||[]).includes(o.id)?"checked":""}> ${esc(o.title)} <span class="note">${STAGES[SI[o.stage]].name}</span></label>`).join(""):'<span class="note">他のタスクはありません</span>'}</div></div>
     <div class="field"><label for="fIdea">アイデア</label><textarea id="fIdea">${esc(c.idea)}</textarea></div>
-    <div class="field"><label for="fSpec">仕様</label><textarea id="fSpec" style="min-height:110px">${esc(c.spec)}</textarea></div>
+    <div class="field"><label for="fSpec">仕様</label><textarea id="fSpec" style="min-height:100px">${esc(c.spec)}</textarea></div>
+    <div class="field"><label for="fSteps">進め方(1行に1ステップ)</label><textarea id="fSteps">${esc((c.steps||[]).map(s=>s.text).join("\n"))}</textarea></div>
     <div class="field"><label for="fCrit">受入条件(1行に1つ)</label><textarea id="fCrit">${esc((c.criteria||[]).join("\n"))}</textarea></div>
     <div class="field"><label for="fPrompt">Claude Codeへの指示</label><textarea id="fPrompt" class="code">${esc(c.prompt)}</textarea></div>
-    ${c.stage!=="idea"&&c.stage!=="done"?`<div class="btns"><button class="btn small" data-act="spec" ${b||!sample?"disabled":""}>AIで仕様を作り直す</button><button class="btn small" data-act="copy-prompt">指示文をコピー</button></div>`:""}
-    <div class="field"><span class="lbl">履歴</span><div class="timeline">${(c.history||[]).slice().reverse().map(h=>`<div><span>${fmt(h.at)}</span> ${esc(STAGES[SI[h.stage]]?.name||h.stage)}${h.why?" · "+esc(h.why):""}</div>`).join("")}</div></div>
-    <div class="btns" style="justify-content:space-between"><span class="note">${live?"変更は自動で保存されます":"共有保存が使えないため、このタブを閉じると消えます"}</span><button class="btn small" data-act="del-ask">削除</button></div>
+    ${c.stage!=="backlog"&&c.stage!=="done"?`<div class="btns"><button class="btn small" data-act="plan" ${b||!sample?"disabled":""}>AIで作り直す</button><button class="btn small" data-act="copy-prompt">指示文をコピー</button></div>`:""}
+    <div class="field"><span class="lbl">履歴</span><div class="timeline">${(c.history||[]).slice().reverse().map(h=>`<div><span class="num">${fmt(h.at)}</span> ${esc(STAGES[SI[h.stage]]?.name||h.stage)}${h.why?" · "+esc(h.why):""}</div>`).join("")}</div></div>
+    <div class="btns" style="justify-content:space-between"><span class="note">${live?"変更は自動で保存されます":"保存先につながっていないため、閉じると消えます"}</span><button class="btn small" data-act="del-ask">削除</button></div>
     <div id="delConfirm" hidden class="btns"><span class="err">このカードを削除しますか?</span><button class="btn small" data-act="del">削除する</button><button class="btn small" data-act="del-cancel">やめる</button></div>
   </aside></div>`;
 }
-/* sheet field edits: debounce saves */
+
+/* ======================= repo picker / settings ======================= */
+function openPicker(mode,full){pickerState={mode,full,q:"",list:null,err:"",loading:false};renderPicker();if(mode==="add")loadGitHub()}
+async function loadGitHub(){
+  if(!mcp){pickerState.err="GitHubの一覧を読めないため、owner/repo を入力してください。";renderPicker();return}
+  pickerState.loading=true;renderPicker();
+  try{
+    const r=await mcp.callTool("Claude Code Remote","list_repos",{limit:200},{cache:{staleTime:600000,gcTime:3600000}});
+    const p=r.payload; const list=(p&&Array.isArray(p.repos))?p.repos:[];
+    pickerState.list=list.filter(x=>!x.archived&&!x.fork).sort((a,b)=>String(b.pushed_at).localeCompare(String(a.pushed_at)));
+  }catch(e){
+    pickerState.err=e.code==="server_not_connected"?"GitHub(Claude Code)の接続がないため一覧を出せません。owner/repo を入力してください。"
+      :e.code==="not_in_manifest"||e.code==="approval_required"?"GitHubの一覧を読む許可がありません。owner/repo を入力してください。"
+      :e.code==="needs_reauth"?"GitHubの接続をつなぎ直してください(claude.ai の設定 → コネクタ)。":"GitHubの一覧を読めませんでした。owner/repo を入力してください。";
+  }
+  pickerState.loading=false;if(pickerState)renderPicker();
+}
+function renderPicker(){
+  const p=pickerState;if(!p)return;
+  let body="";
+  if(p.mode==="add"){
+    const have=new Set(repos.map(r=>r.full));
+    const q=p.q.trim().toLowerCase();
+    const list=(p.list||[]).filter(x=>!have.has(x.full_name)&&(!q||x.full_name.toLowerCase().includes(q)));
+    body=`<div class="section"><h3>リポジトリを選ぶ</h3>
+      <div class="field"><label for="pkQ">検索、または owner/repo を入力</label><input id="pkQ" value="${esc(p.q)}" placeholder="例: kfit または ktrips/kmap" autocomplete="off"></div>
+      ${/^[\w.-]+\/[\w.-]+$/.test(p.q.trim())&&!have.has(p.q.trim())?`<button class="btn primary" data-pick="${esc(p.q.trim())}">${esc(p.q.trim())} を追加</button>`:""}
+      ${p.err?`<p class="note">${esc(p.err)}</p>`:""}
+      ${p.loading?'<p class="note">GitHubのリポジトリを読み込み中…</p>':""}
+      <div class="picker-list">${list.slice(0,60).map(x=>`<button type="button" class="pick" data-pick="${esc(x.full_name)}"><span><span class="nm">${esc(x.full_name.split("/")[1])}</span> <span class="note">${esc(x.full_name.split("/")[0])}${x.visibility==="private"?" · 非公開":""}</span></span><span class="when">${x.pushed_at?ago(x.pushed_at):""}</span></button>`).join("")}</div>
+    </div>`;
+  }else{
+    const r=repoOf(p.full);
+    body=`<div class="section"><h3>${esc(r.name)} の設定</h3>
+      <div class="row2"><div class="field"><label for="rsName">表示名</label><input id="rsName" value="${esc(r.name)}"></div>
+      <div class="field"><label for="rsTarget">対象</label><select id="rsTarget">${[["web","Web"],["ios","iOS"],["both","iOS+Web"]].map(([v,l])=>`<option value="${v}" ${r.target===v?"selected":""}>${l}</option>`).join("")}</select></div></div>
+      <div class="field"><label for="rsAbout">アプリの概要(AIが優先順位や仕様を考えるときに使います)</label><textarea id="rsAbout">${esc(r.about||"")}</textarea></div>
+      <div class="btns"><button class="btn primary" data-act="rs-save">保存</button></div></div>
+      ${repoCards(r.full).some(c=>c.example)?`<div class="section"><h3>例のカード</h3><div class="btns"><button class="btn" data-act="rs-clear-ex">${esc(r.name)} の例のカードを削除</button></div></div>`:""}
+      <div class="section"><h3>一覧から外す</h3><p class="note">カードは残ります。もう一度追加すると戻ります。</p><div class="btns"><button class="btn" data-act="rs-remove-ask">${esc(r.name)} を外す</button></div><div id="rsConfirm" hidden class="btns"><span class="err">一覧から外しますか?</span><button class="btn small" data-act="rs-remove">外す</button></div></div>`;
+  }
+  $("#sheetRoot").innerHTML=`<div class="scrim" data-scrim><aside class="sheet" role="dialog" aria-modal="true" aria-label="リポジトリ">
+    <div class="sheet-h"><input value="${p.mode==="add"?"リポジトリを追加":"リポジトリ設定"}" readonly aria-label="見出し"><button class="btn small ghost" data-act="close">閉じる</button></div>${body}</aside></div>`;
+  const q=$("#pkQ");if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}
+}
+async function addRepo(full){
+  if(repos.some(r=>r.full===full)){view.repo=full;closeSheet();render();return}
+  const r={id:repoKey(full),full,name:full.split("/")[1],target:"web",about:"",order:repos.length,addedAt:now()};
+  if(live){await saveRepo(r)}else{repos.push(r)}
+  view.repo=full;view.stage="backlog";remember();closeSheet();render();
+  toast(`${r.name} を追加しました。対象(Web/iOS)はリポジトリ設定で変えられます`);
+}
+
+/* ======================= events ======================= */
 let editTimer=null;
 document.addEventListener("input",e=>{
-  const c=cards.find(x=>x.id===openId); if(!c||!e.target.closest(".sheet"))return;
-  const id=e.target.id, v=e.target.value;
-  if(e.target.dataset.ck!==undefined){const i=+e.target.dataset.ck;const set=new Set(c.checked||[]);e.target.checked?set.add(i):set.delete(i);c.checked=[...set].sort();save(c);render();return}
-  const map={fTitle:"title",fIdea:"idea",fSpec:"spec",fPrompt:"prompt",fIssue:"issue",fPr:"pr",fPrev:"preview",fFb:"feedback",fProj:"project",fTarget:"target",fPri:"priority"};
+  if(e.target.id==="pkQ"){pickerState.q=e.target.value;const pos=e.target.selectionStart;renderPicker();const q=$("#pkQ");q.setSelectionRange(pos,pos);return}
+  const c=cardById(openId); if(!c||!e.target.closest(".sheet")||pickerState)return;
+  const t=e.target,id=t.id,v=t.value;
+  if(t.dataset.ck!==undefined){const i=+t.dataset.ck,s=new Set(c.checked||[]);t.checked?s.add(i):s.delete(i);c.checked=[...s].sort((a,b)=>a-b);saveCard(c);render();return}
+  if(t.dataset.sp!==undefined){const i=+t.dataset.sp;c.steps[i].done=t.checked;saveCard(c);render();return}
+  if(t.dataset.dep!==undefined){const s=new Set(c.dependsOn||[]);t.checked?s.add(t.dataset.dep):s.delete(t.dataset.dep);c.dependsOn=[...s];saveCard(c);render();return}
+  if(id==="fStage"){moveTo(c,v,"手動で移動");renderSheet();return}
+  const map={fTitle:"title",fIdea:"idea",fSpec:"spec",fPrompt:"prompt",fIssue:"issue",fPr:"pr",fPrev:"preview",fFb:"feedback",fSize:"size",fTarget:"target"};
   if(id==="fCrit"){c.criteria=v.split("\n").map(s=>s.trim()).filter(Boolean);c.checked=(c.checked||[]).filter(i=>i<c.criteria.length)}
-  else if(id==="fStage"){moveTo(c,v,"手動で移動");renderSheet();return}
+  else if(id==="fSteps"){const old=c.steps||[];c.steps=v.split("\n").map(s=>s.trim()).filter(Boolean).map(text=>({text,done:old.find(o=>o.text===text)?.done||false}))}
   else if(map[id]){c[map[id]]=id==="fIssue"?v.replace(/[^0-9]/g,""):v}
   else return;
-  clearTimeout(editTimer);editTimer=setTimeout(()=>{save(c);render()},600);
+  const instant=t.tagName==="SELECT";
+  clearTimeout(editTimer);editTimer=setTimeout(()=>{saveCard(c);render()},instant?0:600);
 });
-
-/* ---------- clicks ---------- */
+document.addEventListener("change",e=>{
+  if(e.target.id==="repoSel"){const v=e.target.value;if(v==="__add"){e.target.value=view.repo;openPicker("add")}else{view.repo=v;view.stage="backlog";proposal=null;remember();render()}}
+});
+document.addEventListener("submit",e=>{
+  if(e.target.id!=="addForm")return;e.preventDefault();
+  const v=$("#addInput").value.trim();if(!v)return;createCard(view.repo,v);$("#addInput").value="";view.stage="backlog";
+});
 document.addEventListener("click",e=>{
-  const st=e.target.closest(".st"); if(st){activeStage=st.dataset.stage;try{localStorage.setItem("kb.stage",activeStage)}catch{};render();
-    if(innerWidth>=900){document.querySelector(`[data-lane="${activeStage}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})}return}
-  const a=e.target.closest("[data-act]");
+  const t=e.target;
+  if(t.closest("[data-home]")){view.repo=null;proposal=null;remember();render();return}
+  const go=t.closest("[data-go]");if(go){view.repo=go.dataset.go;view.stage="backlog";remember();render();scrollTo(0,0);return}
+  const ov=t.closest("[data-open]");if(ov){view.repo=ov.dataset.repo;view.stage=cardById(ov.dataset.open)?.stage||"backlog";remember();render();openSheet(ov.dataset.open);return}
+  const pk=t.closest("[data-pick]");if(pk){addRepo(pk.dataset.pick);return}
+  const st=t.closest(".st");if(st){view.stage=st.dataset.stage;remember();render();if(innerWidth>=900)document.querySelector(`[data-lane="${view.stage}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});return}
+  if(t.matches("[data-scrim]")){closeSheet();return}
+  const a=t.closest("[data-act]");
   if(a){
-    if(a.dataset.act==="close"&&a!==e.target&&!e.target.closest("button"))return;
-    const c=cards.find(x=>x.id===(a.dataset.id||openId));
-    const act=a.dataset.act; e.stopPropagation();
+    const act=a.dataset.act,c=cardById(a.dataset.id||openId);
     switch(act){
       case "close":closeSheet();return;
+      case "pick":openPicker("add");return;
+      case "repo-settings":openPicker("settings",view.repo);return;
+      case "rs-save":{const r=repoOf(pickerState.full);r.name=$("#rsName").value.trim()||r.name;r.target=$("#rsTarget").value;r.about=$("#rsAbout").value.trim();saveRepo(r);closeSheet();render();toast("保存しました");return}
+      case "rs-clear-ex":{repoCards(pickerState.full).filter(c=>c.example).forEach(c=>deleteCard(c));closeSheet();return}
+      case "rs-remove-ask":$("#rsConfirm").hidden=false;return;
+      case "rs-remove":{const r=repoOf(pickerState.full);if(live)db.collection("repos").doc(r.id).delete().catch(()=>toast("外せませんでした"));else repos=repos.filter(x=>x.full!==r.full);view.repo=null;remember();closeSheet();render();return}
       case "open":openSheet(c.id);return;
-      case "spec":aiSpec(c);return;
-      case "skip-spec":moveTo(c,"spec","手で仕様化");renderSheet();return;
+      case "plan":aiPlan(c);return;
+      case "prioritize":aiPrioritize(view.repo);return;
+      case "apply-prop":applyProposal();return;
+      case "drop-prop":proposal=null;render();return;
+      case "up":{const i=sortStage(repoCards(c.repo).filter(x=>x.stage===c.stage),c.stage).indexOf(c);reorder(c,i-1);return}
+      case "down":{const i=sortStage(repoCards(c.repo).filter(x=>x.stage===c.stage),c.stage).indexOf(c);reorder(c,i+1);return}
+      case "to-ready":moveTo(c,"ready","手で仕様化");renderSheet();return;
+      case "to-building":moveTo(c,"building",c.issue?"Issue #"+c.issue:"");renderSheet();return;
+      case "to-testing":moveTo(c,"testing",c.pr?"PR作成":"");renderSheet();return;
+      case "to-deploying":moveTo(c,"deploying","テスト合格");renderSheet();return;
+      case "to-verifying":c.checked=[];moveTo(c,"verifying",c.preview||"");renderSheet();return;
+      case "to-done":c.feedback="";c.fix="";moveTo(c,"done","確認OK");renderSheet();return;
+      case "fix":aiFix(c);return;
       case "copy-body":copy(issueBody(c),"Issue本文");return;
       case "copy-prompt":copy(c.prompt,"指示文");return;
-      case "queued":moveTo(c,"queued",c.issue?"Issue #"+c.issue:"");renderSheet();return;
-      case "building":moveTo(c,"building");renderSheet();return;
-      case "testing":moveTo(c,"testing",c.pr?"PR作成":"");renderSheet();return;
-      case "deploying":moveTo(c,"deploying","テスト合格");renderSheet();return;
-      case "verifying":moveTo(c,"verifying",c.preview||"");c.checked=[];save(c);renderSheet();return;
-      case "done":c.feedback="";moveTo(c,"done","確認OK");renderSheet();return;
-      case "fix":aiFix(c);return;
-      case "reopen":create("続き: "+c.title,c.project);closeSheet();return;
+      case "copy-fix":copy(fixComment(c),"差し戻しコメント");return;
+      case "followup":createCard(c.repo,"続き: "+c.title);closeSheet();return;
       case "del-ask":$("#delConfirm").hidden=false;return;
       case "del-cancel":$("#delConfirm").hidden=true;return;
-      case "del":remove(c);return;
-      case "settings":return;
+      case "del":deleteCard(c);return;
     }
   }
-  const card=e.target.closest(".card"); if(card&&!e.target.closest("button,a"))openSheet(card.dataset.id);
+  const card=t.closest(".card");if(card&&!t.closest("button,a"))openSheet(card.dataset.id);
 });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"&&openId)closeSheet();
+  if(e.key==="Escape"&&$("#sheetRoot").innerHTML)closeSheet();
   if(e.key==="Enter"&&e.target.classList?.contains("card"))openSheet(e.target.dataset.id);
 });
-
-$("#fProject").addEventListener("change",e=>{filter=e.target.value;try{localStorage.setItem("kb.filter",filter)}catch{};render()});
-$("#addForm").addEventListener("submit",e=>{e.preventDefault();const v=$("#addInput").value.trim();if(!v)return;create(v,$("#addProject").value||settings.defaultProject);$("#addInput").value="";activeStage="idea";});
-
-/* drag & drop (desktop) */
+/* drag: between lanes moves stage; onto a card in the same ordered lane reorders */
 let dragId=null;
-document.addEventListener("dragstart",e=>{const c=e.target.closest?.(".card");if(c){dragId=c.dataset.id;e.dataTransfer.effectAllowed="move"}});
-document.addEventListener("dragover",e=>{const l=e.target.closest?.(".lane");if(l&&dragId){e.preventDefault();document.querySelectorAll(".lane.drop").forEach(x=>x!==l&&x.classList.remove("drop"));l.classList.add("drop")}});
-document.addEventListener("drop",e=>{const l=e.target.closest?.(".lane");document.querySelectorAll(".lane.drop").forEach(x=>x.classList.remove("drop"));if(l&&dragId){e.preventDefault();const c=cards.find(x=>x.id===dragId);if(c)moveTo(c,l.dataset.lane,"ドラッグで移動")}dragId=null});
-document.addEventListener("dragend",()=>{dragId=null;document.querySelectorAll(".lane.drop").forEach(x=>x.classList.remove("drop"))});
+document.addEventListener("dragstart",e=>{const c=e.target.closest?.(".card");if(c){dragId=c.dataset.id;e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",dragId)}catch{}}});
+document.addEventListener("dragover",e=>{if(!dragId)return;const l=e.target.closest?.(".lane");if(!l)return;e.preventDefault();
+  document.querySelectorAll(".drop,.dragover").forEach(x=>x.classList.remove("drop","dragover"));
+  const over=e.target.closest(".card");if(over&&over.dataset.id!==dragId)over.classList.add("dragover");else l.classList.add("drop")});
+document.addEventListener("drop",e=>{if(!dragId)return;const l=e.target.closest?.(".lane");document.querySelectorAll(".drop,.dragover").forEach(x=>x.classList.remove("drop","dragover"));
+  if(l){e.preventDefault();const c=cardById(dragId),stage=l.dataset.lane,over=e.target.closest(".card");
+    if(c){
+      if(c.stage!==stage)moveTo(c,stage,"ドラッグで移動");
+      if((stage==="backlog"||stage==="ready")&&over&&over.dataset.id!==c.id){const list=sortStage(repoCards(c.repo).filter(x=>x.stage===stage&&x.id!==c.id),stage);reorder(c,list.findIndex(x=>x.id===over.dataset.id))}
+    }}
+  dragId=null});
+document.addEventListener("dragend",()=>{dragId=null;document.querySelectorAll(".drop,.dragover").forEach(x=>x.classList.remove("drop","dragover"))});
 
-/* settings sheet */
-$("#bSettings").addEventListener("click",()=>{
-  openId=null;
-  $("#sheetRoot").innerHTML=`<div class="scrim" id="setScrim"><aside class="sheet" role="dialog" aria-modal="true" aria-label="設定">
-   <div class="sheet-h"><input value="設定" readonly aria-label="見出し"><button class="btn small ghost" id="setClose">閉じる</button></div>
-   <div class="section"><h3>プロジェクトとリポジトリ</h3>
-   <p class="note">1行に1つ。<code>名前, owner/repo, web|ios|both</code></p>
-   <div class="field"><label for="setProj">プロジェクト</label><textarea id="setProj" class="code">${esc(settings.projects.map(p=>[p.name,p.repo,p.target].join(", ")).join("\n"))}</textarea></div>
-   <div class="btns"><button class="btn primary" id="setSave">保存</button></div></div>
-   <div class="section"><h3>GitHub連携のしくみ</h3>
-   <p class="note">各リポジトリに kenban のワークフローを入れると、<code>claude</code>ラベルのIssueでClaude Codeが実装を始め、PR作成・CI合格・デプロイ完了に合わせてIssueの<code>kenban:工程</code>ラベルが自動で進みます。このボードではIssue番号とPR URLを記録して追いかけます。</p></div>
-   ${cards.some(c=>c.example)&&live?`<div class="section"><h3>例のカード</h3><div class="btns"><button class="btn" id="setClearEx">例のカードをすべて削除</button></div></div>`:""}
-  </aside></div>`;
-  $("#setClose").onclick=()=>$("#sheetRoot").innerHTML="";
-  $("#setScrim").onclick=e=>{if(e.target.id==="setScrim")$("#sheetRoot").innerHTML=""};
-  $("#setSave").onclick=async()=>{
-    const ps=$("#setProj").value.split("\n").map(l=>l.split(",").map(s=>s.trim())).filter(a=>a[0]).map(([name,repo="",target="web"])=>({name,repo,target:["web","ios","both"].includes(target)?target:"web"}));
-    if(!ps.length){toast("プロジェクトを1つ以上入れてください");return}
-    settings={projects:ps,defaultProject:ps[0].name};
-    if(live){try{await settingsDoc.set(settings)}catch(e){toast("保存できませんでした");return}}
-    render();toast("設定を保存しました");$("#sheetRoot").innerHTML="";
-  };
-  const ce=$("#setClearEx"); if(ce)ce.onclick=async()=>{for(const c of cards.filter(c=>c.example)){try{await cardsCol.doc(c.id).delete()}catch{}}toast("例のカードを削除しました");$("#sheetRoot").innerHTML=""};
-});
-
-/* ---------- boot ---------- */
+/* ======================= boot ======================= */
 function demo(){
   const t=now();
+  repos=[{id:"ktrips__kfit",full:"ktrips/kfit",name:"kfit",target:"both",order:0},{id:"ktrips__kmap",full:"ktrips/kmap",name:"kmap",target:"both",order:1}];
   cards=[
-   {id:"d1",title:"結合前にサムネイルで並べ替え",idea:"動画を結合する前にサムネで順番を入れ替えたい",project:"komb",target:"ios",priority:"高",stage:"idea",criteria:[],checked:[],history:[{stage:"idea",at:t}],example:true,updatedAt:t},
-   {id:"d2",title:"倍速プリセットを保存",idea:"よく使う倍速を保存したい",spec:"- 1.25/1.5/2.0の既定プリセット\n- ユーザーが1つ追加できる",criteria:["プリセットを選ぶと倍速が反映される","アプリ再起動後もプリセットが残る"],prompt:"",project:"komb",target:"ios",priority:"中",stage:"spec",checked:[],history:[{stage:"spec",at:t}],example:true,updatedAt:t},
-   {id:"d3",title:"カット位置を0.1秒単位で調整",project:"komb",target:"ios",priority:"中",stage:"testing",criteria:["0.1秒刻みで前後できる","プレビューが追従する","既存のカット機能が壊れない"],checked:[0],issue:"7",history:[{stage:"testing",at:t}],example:true,updatedAt:t}
+   {id:"d1",repo:"ktrips/kfit",title:"Apple Watchで90秒FITを開始",idea:"Watchだけで90秒トレーニングを始めたい",stage:"backlog",rank:1,size:"M",reason:"毎日の起点になる",example:true,createdAt:t,updatedAt:t},
+   {id:"d2",repo:"ktrips/kfit",title:"連続日数のウィジェット",stage:"ready",rank:1,size:"S",steps:[{text:"WidgetKitのターゲット追加",done:false},{text:"連続日数を共有",done:false}],example:true,createdAt:t,updatedAt:t},
+   {id:"d3",repo:"ktrips/kmap",title:"旅日記をPDFで書き出す",stage:"building",size:"M",steps:[{text:"レイアウト",done:true},{text:"書き出し",done:false}],issue:"21",example:true,createdAt:t,updatedAt:t}
   ];
 }
 async function boot(){
   render();
-  if(!window.claude){demo();banner("デモ表示中です。claude.ai で開くとカードが保存され、AIで仕様化できます。");render();return}
-  const [d,s,u]=await Promise.all([claude.use("db"),claude.use("sample"),claude.use("user")]);
-  sample=s; render();
-  if(!d){demo();banner("サインインしていないため保存できません。表示は例のカードです。");render();return}
-  db=d; live=true; cardsCol=db.collection("cards"); settingsDoc=db.doc("meta/settings");
-  if(u&&u.can){try{const w=u.can("data.write");if(w===false){canWrite=false;banner("閲覧のみの権限です。カードの追加・移動はできません。")}}catch{}}
-  settingsDoc.onSnapshot(sn=>{if(sn.exists){const v=sn.data();if(Array.isArray(v.projects)&&v.projects.length)settings={projects:v.projects,defaultProject:v.defaultProject||v.projects[0].name};render()}},()=>{});
-  cardsCol.onSnapshot(sn=>{
-    const local=openId&&document.activeElement&&document.activeElement.closest?.(".sheet");
-    cards=sn.docs.map(x=>({id:x.id,...x.data(),criteria:[...(x.data().criteria||[])],checked:[...(x.data().checked||[])],history:[...(x.data().history||[])]}));
-    render(); if(openId&&!local)renderSheet();
-  },e=>{banner("保存先に接続できなくなりました。ページを再読み込みしてください。")});
+  if(!window.claude){demo();bannerMsg="デモ表示中です。claude.ai で開くと保存とAIが使えます。";render();return}
+  const [d,s,m]=await Promise.all([claude.use("db"),claude.use("sample"),claude.use("mcp")]);
+  sample=s;mcp=m;
+  if(!d){demo();bannerMsg="サインインしていないため保存できません。表示は例です。";render();return}
+  db=d;live=true;
+  db.collection("repos").onSnapshot(sn=>{repos=sn.docs.map(x=>({id:x.id,...x.data()}));render();if(pickerState&&pickerState.mode==="settings")renderPicker()},()=>{bannerMsg="保存先に接続できなくなりました。ページを再読み込みしてください。";render()});
+  db.collection("cards").onSnapshot(sn=>{
+    const typing=openId&&document.activeElement?.closest?.(".sheet");
+    cards=sn.docs.map(x=>{const v=x.data();return {id:x.id,...v,criteria:[...(v.criteria||[])],checked:[...(v.checked||[])],steps:(v.steps||[]).map(s=>({...s})),dependsOn:[...(v.dependsOn||[])],history:[...(v.history||[])]}});
+    render();if(openId&&!typing&&!pickerState)renderSheet();
+  },()=>{bannerMsg="保存先に接続できなくなりました。ページを再読み込みしてください。";render()});
 }
-function banner(m){const b=$("#banner");b.textContent=m;b.hidden=false}
 boot();
 </script>

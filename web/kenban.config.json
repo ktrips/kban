@@ -1,6 +1,0 @@
-{
-  "projects": [
-    { "name": "komb", "repo": "ktrips/komb", "target": "ios" },
-    { "name": "kenban", "repo": "ktrips/kenban", "target": "web" }
-  ]
-}

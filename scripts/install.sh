@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# kenban を既存リポジトリに組み込む。
+# kban を既存リポジトリに組み込む。
 #   bash scripts/install.sh <対象リポジトリのパス> <web|ios|both> [iOSのscheme]
 # 例: bash scripts/install.sh ~/src/komb ios Komb
 set -euo pipefail
@@ -14,62 +14,62 @@ case "$KIND" in web|ios|both) ;; *) echo "web / ios / both のどれかを指定
 if [ "$KIND" != web ] && [ -z "$SCHEME" ]; then echo "iOS では scheme 名が必要です(例: Komb)" >&2; exit 1; fi
 [ -d "$TARGET/.git" ] || { echo "$TARGET は git リポジトリではありません" >&2; exit 1; }
 
-mkdir -p "$TARGET/.github/kenban" "$TARGET/.github/workflows"
-cp "$T/.github/kenban/resolve.js" "$TARGET/.github/kenban/"
-printf '{\n  "target": "%s",\n  "scheme": "%s",\n  "simulator": "iPhone 16"\n}\n' "$KIND" "$SCHEME" > "$TARGET/.github/kenban/config.json"
-cp "$T/.github/workflows/kenban-flow.yml" "$TARGET/.github/workflows/"
+mkdir -p "$TARGET/.github/kban" "$TARGET/.github/workflows"
+cp "$T/.github/kban/resolve.js" "$TARGET/.github/kban/"
+printf '{\n  "target": "%s",\n  "scheme": "%s",\n  "simulator": "iPhone 16"\n}\n' "$KIND" "$SCHEME" > "$TARGET/.github/kban/config.json"
+cp "$T/.github/workflows/kban-flow.yml" "$TARGET/.github/workflows/"
 
 # Claude Code の実行環境: iOS のビルドとテストには macOS が必要
 if [ "$KIND" = web ]; then RUNNER=ubuntu-latest; TOOLS='Bash(npm:*),Bash(npx:*),Bash(node:*)'
 else RUNNER=macos-15; TOOLS='Bash(npm:*),Bash(npx:*),Bash(xcodebuild:*),Bash(swift:*),Bash(xcrun:*)'; fi
-sed -e "s/__RUNNER__/$RUNNER/" -e "s/__TOOLS__/$TOOLS/" "$T/.github/workflows/kenban-claude.yml" > "$TARGET/.github/workflows/kenban-claude.yml"
+sed -e "s/__RUNNER__/$RUNNER/" -e "s/__TOOLS__/$TOOLS/" "$T/.github/workflows/kban-claude.yml" > "$TARGET/.github/workflows/kban-claude.yml"
 
 if [ "$KIND" = web ]; then
-  cp "$T/.github/workflows/kenban-ci.web.yml" "$TARGET/.github/workflows/kenban-ci.yml"
+  cp "$T/.github/workflows/kban-ci.web.yml" "$TARGET/.github/workflows/kban-ci.yml"
 elif [ "$KIND" = ios ]; then
-  cp "$T/.github/workflows/kenban-ci.ios.yml" "$TARGET/.github/workflows/kenban-ci.yml"
+  cp "$T/.github/workflows/kban-ci.ios.yml" "$TARGET/.github/workflows/kban-ci.yml"
 else
-  cp "$T/.github/workflows/kenban-ci.web.yml" "$TARGET/.github/workflows/kenban-ci-web.yml"
-  cp "$T/.github/workflows/kenban-ci.ios.yml" "$TARGET/.github/workflows/kenban-ci.yml"
+  cp "$T/.github/workflows/kban-ci.web.yml" "$TARGET/.github/workflows/kban-ci-web.yml"
+  cp "$T/.github/workflows/kban-ci.ios.yml" "$TARGET/.github/workflows/kban-ci.yml"
 fi
 if [ "$KIND" != web ]; then
-  cp "$T/.github/workflows/kenban-testflight.yml" "$TARGET/.github/workflows/"
+  cp "$T/.github/workflows/kban-testflight.yml" "$TARGET/.github/workflows/"
   mkdir -p "$TARGET/fastlane"
   [ -f "$TARGET/fastlane/Fastfile" ] && echo "fastlane/Fastfile は既にあるので上書きしません(templates/fastlane/Fastfile の beta レーンを参考に追加してください)" \
     || cp "$T/fastlane/Fastfile" "$TARGET/fastlane/Fastfile"
 fi
 
-# CLAUDE.md に kenban のルールを追記(重複しない)
-if ! grep -q "## kenban のルール" "$TARGET/CLAUDE.md" 2>/dev/null; then
-  { [ -f "$TARGET/CLAUDE.md" ] && echo; cat "$T/CLAUDE.kenban.md"; } >> "$TARGET/CLAUDE.md"
+# CLAUDE.md に kban のルールを追記(重複しない)
+if ! grep -q "## kban のルール" "$TARGET/CLAUDE.md" 2>/dev/null; then
+  { [ -f "$TARGET/CLAUDE.md" ] && echo; cat "$T/CLAUDE.kban.md"; } >> "$TARGET/CLAUDE.md"
 fi
 
 # ラベル作成(gh CLI が必要)
 if command -v gh >/dev/null; then
   cd "$TARGET"
   mk() { gh label create "$1" --color "$2" --description "$3" --force >/dev/null 2>&1 && echo "  label: $1" || echo "  label 作成失敗(gh auth を確認): $1"; }
-  mk kenban 18212B "kenban のカード"
+  mk kban 18212B "kban のカード"
   mk claude D9480F "Claude Code に実装を依頼"
-  mk kenban:idea 8A94A3 "アイデア"
-  mk kenban:spec 5C7CFA "仕様化"
-  mk kenban:queued D9480F "AIに指示"
-  mk kenban:building AE3EC9 "実装中"
-  mk kenban:testing C27A00 "テスト"
-  mk kenban:deploying 1C7ED6 "デプロイ"
-  mk kenban:verifying 0C8599 "確認"
-  mk kenban:done 2B8A3E "完了"
-  mk kenban:web 868E96 "対象: Web"
-  mk kenban:ios 868E96 "対象: iOS"
-  mk kenban:both 868E96 "対象: iOS+Web"
-  mk kenban:p-high C92A2A "優先度 高"
-  mk kenban:p-low ADB5BD "優先度 低"
+  mk kban:backlog 8A94A3 "バックログ"
+  mk kban:ready 5C7CFA "次にやる"
+  mk kban:building AE3EC9 "AI実装中"
+  mk kban:testing B86E00 "テスト"
+  mk kban:deploying 1C7ED6 "デプロイ"
+  mk kban:verifying 0C8599 "確認"
+  mk kban:done 2B8A3E "完了"
+  mk kban:web 868E96 "対象: Web"
+  mk kban:ios 868E96 "対象: iOS"
+  mk kban:both 868E96 "対象: iOS+Web"
+  mk kban:size-S ADB5BD "サイズ S(半日)"
+  mk kban:size-M ADB5BD "サイズ M(1〜2日)"
+  mk kban:size-L ADB5BD "サイズ L(3日〜)"
 else
   echo "gh CLI が見つからないため、ラベルは作成していません(README の一覧を参照)"
 fi
 
 cat <<EOF
 
-kenban を組み込みました: $TARGET ($KIND)
+kban を組み込みました: $TARGET ($KIND)
 次にやること:
   1. 変更をコミットして main に push
   2. Claude GitHub App をインストール(Claude Code で /install-github-app)
