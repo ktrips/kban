@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { me } from "@/lib/access";
+import { publicOrigin } from "@/lib/origin";
 import { saveUser, seal } from "@/lib/store";
 import { githubLogin } from "@/lib/github";
 
 /** GitHub sends the user back here; store the token sealed on the Google user. */
 export async function GET(req: NextRequest) {
-  const back = (q: string) => NextResponse.redirect(new URL(`/?github=${q}`, req.url));
+  const back = (q: string) => NextResponse.redirect(new URL(`/?github=${q}`, publicOrigin(req)));
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   if (!code || !state || state !== req.cookies.get("kban_gh_state")?.value) return back("error");

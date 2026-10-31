@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { me } from "@/lib/access";
+import { publicOrigin } from "@/lib/origin";
 
 /** Start the GitHub OAuth flow for the signed-in Google user. */
 export async function GET(req: Request) {
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   url.searchParams.set("client_id", id);
   url.searchParams.set("scope", "repo workflow read:user");
   url.searchParams.set("state", state);
-  url.searchParams.set("redirect_uri", new URL("/api/github/callback", req.url).toString());
+  url.searchParams.set("redirect_uri", new URL("/api/github/callback", publicOrigin(req)).toString());
   const res = NextResponse.redirect(url);
   res.cookies.set("kban_gh_state", state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/" });
   return res;
