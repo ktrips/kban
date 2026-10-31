@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "kban",
   description: "アイデアから AI 実装・テスト・デプロイ・確認までを回すカンバン",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "kban", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Kban Web", statusBarStyle: "default" },
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };

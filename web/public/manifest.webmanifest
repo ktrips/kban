@@ -1,6 +1,6 @@
 {
-  "name": "kban",
-  "short_name": "kban",
+  "name": "Kban Web",
+  "short_name": "Kban Web",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EEF1F4",
