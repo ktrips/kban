@@ -131,7 +131,7 @@ npm run dev                  # http://localhost:3000(OAuth のリダイレクト
 
 1. Apple Developer で App Group `group.net.ktrips.kban` を作る(上の手順 1)
 2. [App Store Connect](https://appstoreconnect.apple.com/apps) で新規 App を作る。バンドル ID は `net.ktrips.kban`(`net.ktrips.kban.share` は拡張なので、App は 1 つでよい)
-3. App Store Connect → ユーザとアクセス → 統合 → App Store Connect API で、**App 管理**以上の権限のキーを作り、`.p8` をダウンロードする(一度しか取れない)
+3. App Store Connect → ユーザとアクセス → 統合 → App Store Connect API で、**管理者(Admin)** の権限のキーを作り(「App 管理」では、配布用の署名をクラウドで作れず Export が失敗する)、`.p8` をダウンロードする(一度しか取れない)
 4. このリポジトリ(ktrips/kban)の Settings → Secrets and variables → Actions に登録する
 
 | 種類 | 名前 | 値 |
