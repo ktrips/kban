@@ -18,6 +18,9 @@ export type Card = CardBody & {
   url: string;
   pr?: string;
   preview?: string;
+  /** Claude Code が使った量(ワークフローが記録): input+output+cache作成 のトークンと概算USD */
+  tokens?: number;
+  cost?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -116,6 +119,8 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
         parallel: m.parallel,
         pr: m.pr,
         preview: m.preview,
+        tokens: m.tokens,
+        cost: m.cost,
         url: i.html_url,
         createdAt: i.created_at,
         updatedAt: i.updated_at,

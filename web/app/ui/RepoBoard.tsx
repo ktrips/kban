@@ -7,14 +7,15 @@ import type { Priority } from "@/lib/ai";
 import type { RepoSettings } from "@/lib/store";
 import { QuickAdd, splitIdea } from "./QuickAdd";
 import { ProgressPanel } from "./Progress";
+import { EstimateBox, usedBy } from "./Usage";
 
 /* ---------------- repo board ---------------- */
 type BoardProps = {
-  boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  budget?: number; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
   const [openNo, setOpenNo] = useState<number | null>(null);
@@ -163,7 +164,7 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
         ))}
       </div></div>
 
-      {open && <Sheet imgBase={`${base}/img`} base={base} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
     </>
   );
 }
@@ -207,8 +208,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ imgBase, base, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  imgBase: string; base: string; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ imgBase, base, budget, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  imgBase: string; base: string; budget?: number; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -251,12 +252,14 @@ function Sheet({ imgBase, base, canEdit, c, all, busy, onClose, move, patch, pla
       <h3>2. Claude Code に渡す</h3>
       {bl.length > 0 && <p className="err">前提がまだ終わっていません: {bl.map((x) => x.title).join("、")}</p>}
       <p className="note">Issue に <code>claude</code> ラベルを付けます。GitHub Actions の Claude Code が実装を始め、PR を作ります。</p>
+      <EstimateBox card={c} all={boardCards} budget={budget} />
       <div className="field"><label htmlFor="extra">追加の指示(任意)</label><textarea id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="例: まず既存のテストを読んでから。UI は変えない" /></div>
       <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button></div>
     </>; break;
     case "building": action = <>
       <h3>3. AI実装中</h3><p className="note">PR が開くと自動で「テスト」に進みます。</p>
       <ProgressPanel base={base} number={c.number} active />
+      {c.tokens ? <p className="note">ここまでの使用量: {usedBy(c)}</p> : null}
       <div className="btns"><a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a>{c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}</div>
     </>; break;
     case "testing": case "verifying": action = <>

@@ -42,6 +42,7 @@ jobs:
             await k.moveIssue({ github, context, core }, context.issue.number, "building");
 
       - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
           # どちらか一方を Secrets に設定(Claude の契約なら claude setup-token で発行した OAuth トークン)
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -51,3 +52,15 @@ jobs:
           claude_args: >-
             --max-turns 80
             --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*),__TOOLS__"
+
+      # 使った量を Issue に記録する(kban が「目安」と「今月の使用量」に使う)。失敗しても実装には影響しない
+      - name: kban → 使用量を記録
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+        with:
+          script: |
+            const k = require(`${process.env.GITHUB_WORKSPACE}/.github/kban/resolve.js`);
+            await k.recordUsage({ github, context, core }, process.env.EXEC_FILE);

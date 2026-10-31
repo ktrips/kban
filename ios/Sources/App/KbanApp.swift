@@ -86,6 +86,11 @@ struct WebView: UIViewRepresentable {
         let w = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         w.navigationDelegate = context.coordinator
         w.allowsBackForwardNavigationGestures = true
+        // 引っ張って更新(カードの進捗や他の人の変更をすぐ見たいとき)
+        let refresh = UIRefreshControl()
+        refresh.addTarget(context.coordinator, action: #selector(Coordinator.reload(_:)), for: .valueChanged)
+        w.scrollView.refreshControl = refresh
+        context.coordinator.web = w
         context.coordinator.loaded = url
         w.load(URLRequest(url: url))
         return w
@@ -97,8 +102,14 @@ struct WebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         var loaded: URL?
+        weak var web: WKWebView?
         let onLoginNeeded: () -> Void
         init(_ f: @escaping () -> Void) { onLoginNeeded = f }
+
+        @objc func reload(_ sender: UIRefreshControl) { web?.reload() }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { webView.scrollView.refreshControl?.endRefreshing() }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { webView.scrollView.refreshControl?.endRefreshing() }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let u = action.request.url else { return decisionHandler(.allow) }

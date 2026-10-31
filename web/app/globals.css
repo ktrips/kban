@@ -185,3 +185,9 @@ h1{font-size:15px;margin:0}
 .chip.st.ok{border-color:var(--s-done);color:var(--s-done)}
 .chip.st.ng{border-color:#C92A2A;color:#C92A2A}
 .claude-note{white-space:pre-wrap;font:13px/1.5 inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:240px;overflow:auto;margin:6px 0}
+
+/* usage estimate */
+.estimate{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.meter{height:8px;border-radius:99px;background:var(--line);display:flex;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--muted)}
+.meter i.plus{background:var(--s-building)}

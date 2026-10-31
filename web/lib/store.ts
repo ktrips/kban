@@ -22,6 +22,8 @@ export type Board = {
   ownerEmail: string;
   repos: RepoSettings[];
   members: Record<string, Role>; // email → role
+  /** 月ごとのトークン予算(目安。Claude の契約の上限そのものではなく、自分で決める枠) */
+  budgetTokens?: number;
   createdAt: string;
 };
 export type User = {

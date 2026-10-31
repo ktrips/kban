@@ -42,4 +42,36 @@ async function moveIssue({ github, context, core }, n, stage, marker) {
   return n;
 }
 
-module.exports = { linkedIssue, prFromSha, moveFromPr, moveIssue, ORDER };
+/**
+ * Add what Claude Code just used to the card (<!-- kban:tokens=… --> / cost). `file` is claude-code-action's
+ * execution_file: a JSON array (or JSON lines) of messages whose last `result` has usage and total_cost_usd.
+ * tokens = input + output + cache creation (cache reads are cheap and left out).
+ */
+async function recordUsage({ github, context, core }, file) {
+  const fs = require("fs");
+  if (!file || !fs.existsSync(file)) return core.info("実行ログがないので使用量は記録しません");
+  const raw = fs.readFileSync(file, "utf8");
+  let msgs;
+  try { msgs = JSON.parse(raw); } catch { msgs = raw.split("\n").filter(Boolean).map((l) => JSON.parse(l)); }
+  const r = [].concat(msgs).reverse().find((m) => m && m.type === "result");
+  if (!r || !r.usage) return core.info("結果に使用量がありません");
+  const u = r.usage;
+  const tokens = (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  const cost = Number(r.total_cost_usd || 0);
+
+  const { owner, repo } = context.repo;
+  let n = context.issue && context.issue.number;
+  if (context.eventName === "pull_request_review_comment" || (context.payload.issue && context.payload.issue.pull_request)) {
+    const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+    n = linkedIssue(pr.body, pr.head.ref);
+  }
+  if (!n) return core.info("紐付く Issue がないので使用量は記録しません");
+  const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: n });
+  const get = (k) => Number((new RegExp(`<!-- kban:${k}=(.*?) -->`).exec(issue.body || "") || [])[1]) || 0;
+  let body = (issue.body || "").replace(/\n?<!-- kban:(tokens|cost)=.*? -->/g, "");
+  body += `\n<!-- kban:tokens=${get("tokens") + tokens} -->\n<!-- kban:cost=${(get("cost") + cost).toFixed(2)} -->`;
+  await github.rest.issues.update({ owner, repo, issue_number: n, body });
+  core.info(`#${n}: +${tokens} tokens, +$${cost.toFixed(2)}`);
+}
+
+module.exports = { recordUsage, linkedIssue, prFromSha, moveFromPr, moveIssue, ORDER };
