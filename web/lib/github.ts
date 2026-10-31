@@ -295,4 +295,8 @@ export async function setClaudeSecret(token: string, full: string, name: string,
   await o.actions.createOrUpdateRepoSecret({
     owner, repo, secret_name: name, key_id: key.key_id, encrypted_value: sodium.to_base64(enc, sodium.base64_variants.ORIGINAL),
   });
+  // 選んだ方が使われるように、もう一方は消す(ワークフローは契約のトークンを優先するので、残すと API キーを選んでも効かない)
+  for (const other of CLAUDE_SECRETS.filter((n) => n !== name)) {
+    await o.actions.deleteRepoSecret({ owner, repo, secret_name: other }).catch((e) => { if ((e as { status?: number }).status !== 404) throw e; });
+  }
 }

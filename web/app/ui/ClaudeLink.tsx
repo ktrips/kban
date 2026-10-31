@@ -50,12 +50,12 @@ export function ClaudeLink({ base, isOwner, target, toast }: { base: string; isO
           <label htmlFor="sv">あなたの Claude Code の認証を登録</label>
           <div className="row2">
             <select value={secret.name} onChange={(e) => setSecret({ ...secret, name: e.target.value })} aria-label="認証の種類">
-              <option value="CLAUDE_CODE_OAUTH_TOKEN">Claude の契約(setup-token)</option>
-              <option value="ANTHROPIC_API_KEY">Anthropic API キー</option>
+              <option value="CLAUDE_CODE_OAUTH_TOKEN">Claude の契約 / Subscription(setup-token)</option>
+              <option value="ANTHROPIC_API_KEY">Anthropic API キー(従量課金)</option>
             </select>
             <input id="sv" type="password" autoComplete="off" value={secret.value} onChange={(e) => setSecret({ ...secret, value: e.target.value })} placeholder="トークンを貼り付け" />
           </div>
-          <span className="note">契約のトークンは、手元のターミナルで <code>claude setup-token</code> を実行すると出ます。GitHub の暗号化して Secrets に保存し、kban には残しません。</span>
+          <span className="note">契約のトークンは、手元のターミナルで <code>claude setup-token</code> を実行すると出ます。GitHub の暗号化して Secrets に保存し、kban には残しません。どちらか一方だけが登録されます(登録すると、もう一方は削除されます)。</span>
           <div className="btns"><button className="btn primary" disabled={!!busy || !secret.value.trim()} onClick={() => run("secret", { action: "secret", name: secret.name, value: secret.value }, () => { setSecret({ ...secret, value: "" }); return "認証を登録しました"; })}>{busy === "secret" ? "登録中…" : "登録"}</button></div>
         </div>
       </> : <p className="note">登録とワークフローの追加は、ボードの持ち主だけができます。</p>}
