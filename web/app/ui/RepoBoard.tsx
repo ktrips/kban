@@ -6,6 +6,7 @@ import type { Size } from "@/lib/stages";
 import type { Priority } from "@/lib/ai";
 import type { RepoSettings } from "@/lib/store";
 import { QuickAdd, splitIdea } from "./QuickAdd";
+import { ProgressPanel } from "./Progress";
 
 /* ---------------- repo board ---------------- */
 type BoardProps = {
@@ -162,7 +163,7 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
         ))}
       </div></div>
 
-      {open && <Sheet imgBase={`${base}/img`} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
     </>
   );
 }
@@ -206,8 +207,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ imgBase, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  imgBase: string; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ imgBase, base, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  imgBase: string; base: string; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -217,6 +218,12 @@ function Sheet({ imgBase, canEdit, c, all, busy, onClose, move, patch, plan, fix
   });
   const shots = splitIdea(c.idea, imgBase).images;
   const [feedback, setFeedback] = useState("");
+  const [extra, setExtra] = useState("");
+  const handOff = () => {
+    // 追加の指示は「Claude Codeへの指示」の末尾に足してから渡す(Issue 本文に残るので Claude Code が読む)
+    if (extra.trim()) patch(c, { prompt: `${f.prompt}\n\n追加の指示: ${extra.trim()}`, stage: "building" }, "Claude Code に渡しました");
+    else move(c, "building");
+  };
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
 
@@ -244,14 +251,17 @@ function Sheet({ imgBase, canEdit, c, all, busy, onClose, move, patch, plan, fix
       <h3>2. Claude Code に渡す</h3>
       {bl.length > 0 && <p className="err">前提がまだ終わっていません: {bl.map((x) => x.title).join("、")}</p>}
       <p className="note">Issue に <code>claude</code> ラベルを付けます。GitHub Actions の Claude Code が実装を始め、PR を作ります。</p>
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => move(c, "building")}>AIに渡す</button></div>
+      <div className="field"><label htmlFor="extra">追加の指示(任意)</label><textarea id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="例: まず既存のテストを読んでから。UI は変えない" /></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button></div>
     </>; break;
     case "building": action = <>
       <h3>3. AI実装中</h3><p className="note">PR が開くと自動で「テスト」に進みます。</p>
+      <ProgressPanel base={base} number={c.number} active />
       <div className="btns"><a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a>{c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}</div>
     </>; break;
     case "testing": case "verifying": action = <>
       <h3>{c.stage === "testing" ? "4. テスト" : "6. 確認"}</h3>
+      <ProgressPanel base={base} number={c.number} active={false} />
       <div className="btns">
         {c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}
         {c.preview && (/^https?:/.test(c.preview) ? <a className="btn" href={c.preview} target="_blank" rel="noreferrer">プレビューを開く</a> : <span className="chip">{c.preview}</span>)}
@@ -268,6 +278,7 @@ function Sheet({ imgBase, canEdit, c, all, busy, onClose, move, patch, plan, fix
     </>; break;
     case "deploying": action = <>
       <h3>5. デプロイ</h3><p className="note">Web はプレビューのデプロイ、iOS は TestFlight へのアップロードが終わると「確認」に進みます。</p>
+      <ProgressPanel base={base} number={c.number} active={false} />
       <div className="btns">{c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}<button className="btn" disabled={!!busy} onClick={() => move(c, "verifying")}>手動で確認へ</button></div>
     </>; break;
     default: action = <><h3>完了</h3><a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a></>;

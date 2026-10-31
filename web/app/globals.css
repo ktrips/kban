@@ -178,3 +178,10 @@ h1{font-size:15px;margin:0}
 .thumb img{height:72px;border-radius:8px;border:1px solid var(--line);display:block}
 .thumb.big img{height:140px}
 .thumb button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--ink);color:var(--panel);cursor:pointer;line-height:1}
+
+/* Claude Code progress */
+.progress{display:flex;flex-direction:column;gap:8px}
+.chip.st.run{border-color:var(--s-building);color:var(--s-building)}
+.chip.st.ok{border-color:var(--s-done);color:var(--s-done)}
+.chip.st.ng{border-color:#C92A2A;color:#C92A2A}
+.claude-note{white-space:pre-wrap;font:13px/1.5 inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:240px;overflow:auto;margin:6px 0}
