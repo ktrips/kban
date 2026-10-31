@@ -265,7 +265,7 @@ function Sheet({ canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
       <p className="note">差し戻すと、PR に <code>@claude</code> 付きの修正指示をコメントします。</p>
     </>; break;
     case "deploying": action = <>
-      <h3>5. デプロイ</h3><p className="note">Web は Vercel のプレビュー、iOS は TestFlight へのアップロードが終わると「確認」に進みます。</p>
+      <h3>5. デプロイ</h3><p className="note">Web はプレビューのデプロイ、iOS は TestFlight へのアップロードが終わると「確認」に進みます。</p>
       <div className="btns">{c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}<button className="btn" disabled={!!busy} onClick={() => move(c, "verifying")}>手動で確認へ</button></div>
     </>; break;
     default: action = <><h3>完了</h3><a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a></>;

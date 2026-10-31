@@ -3,7 +3,7 @@ export const STAGES = [
   { id: "ready", name: "次にやる", hint: "仕様と進め方が決まったもの" },
   { id: "building", name: "AI実装中", hint: "Claude Code が実装して PR を作成", wip: 3 },
   { id: "testing", name: "テスト", hint: "CI と受入条件をチェック" },
-  { id: "deploying", name: "デプロイ", hint: "Vercel プレビュー / TestFlight" },
+  { id: "deploying", name: "デプロイ", hint: "プレビュー / TestFlight" },
   { id: "verifying", name: "確認", hint: "実画面・実機で確かめる" },
   { id: "done", name: "完了", hint: "マージ済み" },
 ] as const;

@@ -1,14 +1,17 @@
-import { Redis } from "@upstash/redis";
+import { getApps, initializeApp } from "firebase-admin/app";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import type { Target } from "./stages";
 
 /**
- * Persistent data, in Upstash Redis (Vercel → Storage → Upstash for Redis).
+ * Persistent data, in Firestore (collection "kban", one document per key below, encoded with encodeURIComponent).
+ * Values live in field `v` (JSON), id sets in field `m` (array).
  *   user:{uid}            User
  *   user:{uid}:boards     set of board ids the user owns
  *   member:{email}        set of board ids shared with that email
  *   board:{id}            Board
- * Without UPSTASH_REDIS_REST_URL (local dev) an in-memory map is used and is lost on restart.
+ * On Firebase App Hosting the default credentials are used. In local dev an in-memory map is used (lost on restart)
+ * unless FIRESTORE_EMULATOR_HOST or GOOGLE_APPLICATION_CREDENTIALS is set.
  */
 export type Role = "editor" | "viewer";
 export type RepoSettings = { full: string; name: string; target: Target; about: string };
@@ -46,26 +49,31 @@ function memoryKV(): KV {
   };
 }
 
+function firestoreKV(): KV {
+  const app = getApps()[0] ?? initializeApp();
+  const col = getFirestore(app).collection("kban");
+  const ref = (k: string) => col.doc(encodeURIComponent(k));
+  return {
+    async get<T>(k: string) {
+      const d = await ref(k).get();
+      return d.exists ? ((JSON.parse(d.get("v")) as T) ?? null) : null;
+    },
+    async set(k, v) { await ref(k).set({ v: JSON.stringify(v) }); },
+    async del(k) { await ref(k).delete(); },
+    async sadd(k, m) { await ref(k).set({ m: FieldValue.arrayUnion(m) }, { merge: true }); },
+    async srem(k, m) { await ref(k).set({ m: FieldValue.arrayRemove(m) }, { merge: true }); },
+    async smembers(k) {
+      const d = await ref(k).get();
+      return (d.get("m") as string[] | undefined) ?? [];
+    },
+  };
+}
+
 let kv: KV | null = null;
 function db(): KV {
   if (kv) return kv;
-  if (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) {
-    const r = new Redis({
-      url: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL)!,
-      token: (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)!,
-    });
-    kv = {
-      get: (k) => r.get(k),
-      set: (k, v) => r.set(k, v),
-      del: (k) => r.del(k),
-      sadd: (k, m) => r.sadd(k, m),
-      srem: (k, m) => r.srem(k, m),
-      smembers: (k) => r.smembers(k),
-    };
-  } else {
-    if (process.env.NODE_ENV === "production") throw new Error("UPSTASH_REDIS_REST_URL / TOKEN を設定してください");
-    kv = memoryKV();
-  }
+  const useFirestore = process.env.NODE_ENV === "production" || process.env.FIRESTORE_EMULATOR_HOST || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  kv = useFirestore ? firestoreKV() : memoryKV();
   return kv;
 }
 
