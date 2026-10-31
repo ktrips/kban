@@ -14,7 +14,7 @@ test("body and markers round-trip", () => {
   };
   const md = renderBody(b, { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9" });
   assert.deepEqual(parseBody(md), b);
-  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined, tokens: undefined, cost: undefined });
+  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined, tokens: undefined, cost: undefined, usage: undefined });
 });
 
 test("empty sections stay empty", () => {
@@ -55,5 +55,6 @@ test("usage markers round-trip", () => {
   const m = parseMarkers(md);
   assert.equal(m.tokens, 123456);
   assert.equal(m.cost, 1.23);
+  assert.equal(parseMarkers(renderBody({ idea: "x", spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { usage: "100:5,200:7" })).usage, "100:5,200:7");
   assert.equal(parseMarkers("<!-- kban:rank=1 -->").tokens, undefined);
 });

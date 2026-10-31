@@ -68,8 +68,13 @@ async function recordUsage({ github, context, core }, file) {
   if (!n) return core.info("紐付く Issue がないので使用量は記録しません");
   const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: n });
   const get = (k) => Number((new RegExp(`<!-- kban:${k}=(.*?) -->`).exec(issue.body || "") || [])[1]) || 0;
-  let body = (issue.body || "").replace(/\n?<!-- kban:(tokens|cost)=.*? -->/g, "");
-  body += `\n<!-- kban:tokens=${get("tokens") + tokens} -->\n<!-- kban:cost=${(get("cost") + cost).toFixed(2)} -->`;
+  // 直近5時間・7日の集計用に「秒:トークン」の履歴も残す(8日より古いものは捨てる)
+  const now = Math.floor(Date.now() / 1000);
+  const prev = ((/<!-- kban:usage=(.*?) -->/.exec(issue.body || "") || [])[1] || "").split(",").filter(Boolean)
+    .filter((e) => now - Number(e.split(":")[0]) < 8 * 86400);
+  const usage = [...prev, `${now}:${tokens}`].join(",");
+  let body = (issue.body || "").replace(/\n?<!-- kban:(tokens|cost|usage)=.*? -->/g, "");
+  body += `\n<!-- kban:tokens=${get("tokens") + tokens} -->\n<!-- kban:cost=${(get("cost") + cost).toFixed(2)} -->\n<!-- kban:usage=${usage} -->`;
   await github.rest.issues.update({ owner, repo, issue_number: n, body });
   core.info(`#${n}: +${tokens} tokens, +$${cost.toFixed(2)}`);
 }

@@ -23,5 +23,21 @@ export function monthUsed(cards: Pick<Card, "tokens" | "updatedAt">[], now = new
   return cards.filter((c) => c.tokens && c.updatedAt.startsWith(ym)).reduce((a, c) => a + c.tokens!, 0);
 }
 
+/**
+ * 直近 hours 時間の kban 経由の使用量(Issue に記録した「秒:トークン」の履歴の合計)。
+ * Claude の契約の 5 時間 / 1 週間の枠そのものではなく、kban から Claude Code を動かした分だけ。
+ */
+export function windowUsed(cards: { usage?: string }[], hours: number, now = new Date()) {
+  const from = now.getTime() / 1000 - hours * 3600;
+  let sum = 0;
+  for (const c of cards) {
+    for (const e of (c.usage || "").split(",")) {
+      const [t, n] = e.split(":").map(Number);
+      if (t >= from && Number.isFinite(n)) sum += n;
+    }
+  }
+  return sum;
+}
+
 export const fmtTokens = (n: number) => (n >= 1e8 ? `${(n / 1e8).toFixed(1)}億` : n >= 1e4 ? `${Math.round(n / 1e4).toLocaleString("ja-JP")}万` : `${n.toLocaleString("ja-JP")}`);
 export const pct = (n: number, of: number) => Math.round((n / of) * 100);

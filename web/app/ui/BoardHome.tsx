@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, blockersOf, progress, StagesBar, tLabel } from "./common";
 import type { RepoSettings, Role } from "@/lib/store";
-import { MonthMeter } from "./Usage";
+import { MonthMeter, WindowMeters } from "./Usage";
 import { ClaudeLink } from "./ClaudeLink";
 
 export type BoardData = {
@@ -25,6 +25,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
           <span className="sep">/</span>
           <h1 style={{ fontFamily: "var(--f-display)", fontSize: 20, fontWeight: 400 }}>{board.name}</h1>
         </div>
+        <WindowMeters cards={cards} />
         <MonthMeter cards={cards} budget={board.budgetTokens} />
         {role !== "owner" && <span className="chip">{board.ownerEmail} のボード · {canEdit ? "編集できる" : "見るだけ"}</span>}
         <div className="spacer" />

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Card } from "./common";
-import { estimate, monthUsed, fmtTokens, pct } from "@/lib/usage";
+import { estimate, monthUsed, windowUsed, fmtTokens, pct } from "@/lib/usage";
 
 /** Claude Code に渡す前の使用量の目安と、月の予算に対する割合。 */
 export function EstimateBox({ card, all, budget }: { card: Card; all: Card[]; budget?: number }) {
@@ -31,6 +31,18 @@ export function MonthMeter({ cards, budget }: { cards: Card[]; budget?: number }
     <div className="chip" title="今月に更新されたカードの Claude Code 実績の合計">
       今月 {fmtTokens(used)} トークン{budget ? ` / ${fmtTokens(budget)}(${pct(used, budget)}%)` : ""}
     </div>
+  );
+}
+
+/** 直近5時間・直近7日の使用量(kban から Claude Code を動かした分) */
+export function WindowMeters({ cards }: { cards: Card[] }) {
+  const h5 = windowUsed(cards, 5);
+  const d7 = windowUsed(cards, 24 * 7);
+  return (
+    <>
+      <div className="chip" title="直近5時間に kban から動かした Claude Code のトークン合計。Claude の契約の枠(%)そのものではありません">5時間 {fmtTokens(h5)}</div>
+      <div className="chip" title="直近7日間に kban から動かした Claude Code のトークン合計。Claude の契約の枠(%)そのものではありません">1週間 {fmtTokens(d7)}</div>
+    </>
   );
 }
 
