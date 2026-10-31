@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { STAGE_IDS, StageId, Target, Size, stageFromLabels, stageLabel, targetFromLabels, sizeFromLabels } from "./stages";
 import { parseBody, renderBody, parseMarkers, CardBody, Markers } from "./body";
 import type { RepoSettings } from "./store";
+import { planInstall } from "./install";
 
 export type GhRepo = { full: string; name: string; description: string; pushedAt?: string; private: boolean };
 export type Card = CardBody & {
@@ -209,5 +210,86 @@ export async function requestFix(token: string, full: string, number: number, in
     labels: labelNames((await gh(token).issues.get({ owner, repo, issue_number: number })).data.labels)
       .filter((l) => !STAGE_IDS.some((s) => l === stageLabel(s)))
       .concat(stageLabel("building")),
+  });
+}
+
+/* ---------------- Claude Code link (workflows + credential in the app's repo) ---------------- */
+
+export const CLAUDE_SECRETS = ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"] as const;
+export type ClaudeStatus = {
+  workflows: boolean; // kban-claude.yml がデフォルトブランチにある
+  secret: string | null | "unknown"; // 登録済みの認証の名前。権限がなく調べられないとき "unknown"
+  pr?: string; // 連携を入れる PR が開いている
+};
+
+export async function claudeStatus(token: string, full: string): Promise<ClaudeStatus> {
+  const { owner, repo } = split(full);
+  const o = gh(token);
+  const exists = (path: string, ref?: string) =>
+    o.repos.getContent({ owner, repo, path, ref }).then(() => true, (e) => { if ((e as { status?: number }).status === 404) return false; throw e; });
+  const [workflows, secrets, prs] = await Promise.all([
+    exists(".github/workflows/kban-claude.yml"),
+    o.actions.listRepoSecrets({ owner, repo, per_page: 100 }).then((r) => r.data.secrets.map((s) => s.name)).catch(() => null),
+    o.pulls.list({ owner, repo, state: "open", head: `${owner}:${SETUP_BRANCH}`, per_page: 1 }).then((r) => r.data).catch(() => []),
+  ]);
+  return {
+    workflows,
+    secret: secrets ? (CLAUDE_SECRETS.find((n) => secrets.includes(n)) ?? null) : "unknown",
+    pr: prs[0]?.html_url,
+  };
+}
+
+const SETUP_BRANCH = "kban/setup-claude";
+
+/** Put kban's workflows into the repo on a branch and open a PR (they only run once merged into the default branch). */
+export async function installClaude(token: string, full: string, kind: Target, scheme: string) {
+  const { owner, repo } = split(full);
+  const o = gh(token);
+  const { data: r } = await o.repos.get({ owner, repo });
+  const base = r.default_branch;
+  const read = async (path: string) => {
+    try {
+      const { data } = await o.repos.getContent({ owner, repo, path, ref: base });
+      return !Array.isArray(data) && "content" in data ? Buffer.from(data.content, "base64").toString("utf8") : null;
+    } catch (e) { if ((e as { status?: number }).status === 404) return null; throw e; }
+  };
+  const files = await planInstall(kind, scheme, read);
+  await ensureLabels(token, full);
+
+  const { data: head } = await o.git.getRef({ owner, repo, ref: `heads/${base}` });
+  const { data: tree } = await o.git.createTree({
+    owner, repo, base_tree: head.object.sha,
+    tree: Object.entries(files).map(([path, content]) => ({ path, mode: "100644" as const, type: "blob" as const, content })),
+  });
+  const { data: commit } = await o.git.createCommit({ owner, repo, message: "kban: Claude Code 連携(ワークフロー)を追加", tree: tree.sha, parents: [head.object.sha] });
+  try {
+    await o.git.createRef({ owner, repo, ref: `refs/heads/${SETUP_BRANCH}`, sha: commit.sha });
+  } catch (e) {
+    if ((e as { status?: number }).status !== 422) throw e;
+    await o.git.updateRef({ owner, repo, ref: `heads/${SETUP_BRANCH}`, sha: commit.sha, force: true }); // 前回の途中のものを置き換える
+  }
+  const existing = await o.pulls.list({ owner, repo, state: "open", head: `${owner}:${SETUP_BRANCH}`, per_page: 1 });
+  if (existing.data[0]) return { pr: existing.data[0].html_url, files: Object.keys(files) };
+  const { data: pr } = await o.pulls.create({
+    owner, repo, head: SETUP_BRANCH, base, title: "kban: Claude Code 連携を追加",
+    body: "kban のカードから Claude Code(GitHub Actions)を動かすためのワークフローと設定です。マージすると有効になります。\n\n" +
+      `追加されるファイル:\n${Object.keys(files).map((f) => `- \`${f}\``).join("\n")}\n\n` +
+      "このあと、Claude GitHub App のインストールと、Secrets(`CLAUDE_CODE_OAUTH_TOKEN` か `ANTHROPIC_API_KEY`)の登録が必要です。kban の「リポジトリの設定 → Claude Code 連携」から行えます。",
+  });
+  return { pr: pr.html_url, files: Object.keys(files) };
+}
+
+/** Store a credential as an Actions secret (encrypted with the repo's public key; kban does not keep the value). */
+export async function setClaudeSecret(token: string, full: string, name: string, value: string) {
+  if (!(CLAUDE_SECRETS as readonly string[]).includes(name)) throw new Error("この名前のシークレットは登録できません");
+  if (!value.trim()) throw new Error("値が空です");
+  const { owner, repo } = split(full);
+  const o = gh(token);
+  const { data: key } = await o.actions.getRepoPublicKey({ owner, repo });
+  const sodium = (await import("libsodium-wrappers")).default;
+  await sodium.ready;
+  const enc = sodium.crypto_box_seal(sodium.from_string(value.trim()), sodium.from_base64(key.key, sodium.base64_variants.ORIGINAL));
+  await o.actions.createOrUpdateRepoSecret({
+    owner, repo, secret_name: name, key_id: key.key_id, encrypted_value: sodium.to_base64(enc, sodium.base64_variants.ORIGINAL),
   });
 }

@@ -17,6 +17,20 @@
 - 「次にやる」のカードで **AIに渡す** と、そのリポジトリの Issue に `claude` ラベルが付き、リポジトリ側の Claude Code(GitHub Actions)が動きます。「追加の指示」を書くと、Issue の「Claude Codeへの指示」に足されます
 - カードを開くと **進捗** が見えます(実装中・テスト・デプロイ・確認で表示。実行中は15秒ごとに更新): Claude Code の実行状況(実行中/成功/失敗)、Claude Code が Issue に書く進捗メモ、PR(コミット数・差分)とチェックの結果。見るだけのメンバーにも見えます
 
+## 自分の Claude Code との連携
+
+ボードのリポジトリ設定 → **Claude Code 連携** で、そのリポジトリに自分の Claude Code をつなぎます(ボードの持ち主のみ)。`install.sh` を手元で実行する代わりになります。
+
+1. **ワークフローを入れる PR を作る**: `kban-claude.yml` など、`install.sh` と同じファイルを `kban/setup-claude` ブランチに入れて PR を作ります。マージすると有効になります
+2. **認証を登録**: 手元で `claude setup-token` を実行して出るトークン(Claude の契約)か、Anthropic API キーを貼ると、リポジトリの Actions Secrets に暗号化して保存します。kban には残りません
+3. **Claude GitHub App** をそのリポジトリに入れる(GitHub 上の操作。リンクあり)
+
+連携できていないリポジトリのカードには、「AIに渡す」の前に警告が出ます。ワークフローと Secrets を書くため、GitHub の連携に `workflow` 権限が要ります(以前に連携した場合は「連携し直す」)。
+
+## Web と iPhone で同じもの
+
+Web と iPhone アプリは同じサーバーを見ています。画像(`kban-attachments` ブランチ)、バックログ・進捗(GitHub の Issue)、ボードと共有(Firestore)は共通で、どちらから追加・更新してもすぐ反映されます(画面の更新は20秒ごと。iPhone は引っ張って更新)。別物なのは、claude.ai 上の軽量版 `board/index.html` だけです。
+
 ## 使用量の目安
 
 「次にやる」のカードで **AIに渡す** の前に、使用量の目安と、月の予算に対する割合が出ます(例: 約40万トークン、月の予算の8%)。

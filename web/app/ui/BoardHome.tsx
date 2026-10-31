@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, blockersOf, progress, StagesBar, tLabel } from "./common";
 import type { RepoSettings, Role } from "@/lib/store";
 import { MonthMeter } from "./Usage";
+import { ClaudeLink } from "./ClaudeLink";
 
 export type BoardData = {
   board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
@@ -75,7 +76,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       {sheet === "pick" && <Picker boardId={board.id} have={board.repos.map((r) => r.full)} onClose={() => setSheet(null)} done={async (full) => { setSheet(null); await reload(); toast(`${full} を追加しました`); }} toast={toast} />}
       {sheet === "share" && <Share data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
-      {sheet && typeof sheet === "object" && <RepoSettingsSheet boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
+      {sheet && typeof sheet === "object" && <RepoSettingsSheet isOwner={role === "owner"} boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
     </>
   );
 }
@@ -202,7 +203,7 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
   );
 }
 
-function RepoSettingsSheet({ boardId, repo, onClose, reload, toast }: { boardId: string; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
+function RepoSettingsSheet({ isOwner, boardId, repo, onClose, reload, toast }: { boardId: string; isOwner: boolean; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const [f, setF] = useState({ name: repo.name, target: repo.target, about: repo.about });
   async function save() { try { await api(`/api/boards/${boardId}/repos`, "PATCH", { full: repo.full, ...f }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function remove() { try { await api(`/api/boards/${boardId}/repos?full=${encodeURIComponent(repo.full)}`, "DELETE"); await reload(); onClose(); toast("ボードから外しました"); } catch (e) { toast((e as Error).message); } }
@@ -216,6 +217,7 @@ function RepoSettingsSheet({ boardId, repo, onClose, reload, toast }: { boardId:
         <div className="field"><label htmlFor="rsAbout">アプリの概要(AI が優先順位や仕様を考えるときに使います)</label><textarea id="rsAbout" value={f.about} onChange={(e) => setF({ ...f, about: e.target.value })} /></div>
         <div className="btns"><button className="btn primary" onClick={save}>保存</button></div>
       </div>
+      <ClaudeLink base={`/api/boards/${boardId}/r/${repo.full}`} isOwner={isOwner} target={repo.target} toast={toast} />
       <div className="section"><h3>ボードから外す</h3><p className="note">GitHub の Issue とラベルは残ります。</p><div className="btns"><button className="btn" onClick={remove}>{repo.name} を外す</button></div></div>
     </Sheet>
   );

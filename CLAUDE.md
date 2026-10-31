@@ -31,6 +31,12 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - スクリーンショットは `lib/attach.ts` が `kban-attachments` ブランチに commit し、Issue の背景に Markdown 画像で入れる。表示は `/api/boards/.../img/[name]`
 - **未検証**: Swift のコードはこの環境(Linux)でビルドしていない。`.github/workflows/ios-build.yml` と実機で確認すること
 
+## Claude Code 連携(リポジトリ側)
+
+- `templates/` が元。Firebase の build は `web/` だけでも動くよう、`web/scripts/sync-templates.mjs`(`prebuild`)が `web/lib/templates.generated.ts` に埋め込む。**templates を変えたら `npm run sync-templates` してコミット**(テストが古さを検出)
+- `web/lib/install.ts` は `scripts/install.sh` と同じ内容(片方を変えたらもう片方も)。`lib/github.ts` の `installClaude`(PR 作成)/ `setClaudeSecret`(libsodium で暗号化)/ `claudeStatus`
+- GitHub OAuth のスコープは `repo workflow read:user`
+
 ## もう一つのボード(claude.ai 版)
 
 `board/index.html` は claude.ai の Artifact として公開しているボード(Ken の claude.ai アカウント)。
