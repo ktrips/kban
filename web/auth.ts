@@ -26,7 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     authorized({ auth, request }) {
       const p = request.nextUrl.pathname;
-      if (p === "/login" || p.startsWith("/api/auth")) return true;
+      if (p === "/login" || p.startsWith("/api/auth") || p === "/api/native/exchange") return true;
+      if (p === "/api/capture" && request.headers.get("authorization")?.startsWith("Bearer kbt_")) return true;
       return !!auth?.user;
     },
   },

@@ -43,3 +43,9 @@ test("linked issue from PR body or branch", () => {
   assert.equal(linkedIssue("", "claude/issue-34-20261030-0912"), 34);
   assert.equal(linkedIssue("nothing", "main"), null);
 });
+
+test("idea with screenshot markdown survives render → parse", () => {
+  const idea = "ホームのボタンが切れる\n\n![スクリーンショット](https://github.com/ktrips/kfit/blob/kban-attachments/attachments/a.jpg?raw=true)";
+  const md = renderBody({ idea, spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { rank: 1 });
+  assert.equal(parseBody(md).idea, idea);
+});

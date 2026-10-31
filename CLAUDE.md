@@ -23,6 +23,14 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
   `scripts/install.sh` でアプリのリポジトリにコピーする。工程は前にしか進めない(resolve.js)
 - AI(仕様化・優先順位・差し戻し)はサーバーから Claude API(`web/lib/ai.ts`、`KBAN_MODEL`)
 
+## iPhone
+
+- `ios/`(SwiftUI + WKWebView + 共有シート拡張。XcodeGen)。UI は web/ を表示するだけ。Google は WebView ログイン不可なので、
+  `ASWebAuthenticationSession` → `/api/native/start` → `kban://done?code&token` → `/api/native/exchange`(セッション Cookie を発行)
+- 共有シートは個人トークン(`kbt_…`、`store.ts` にハッシュで保存)を Bearer で `/api/capture` に送る。追加処理は `lib/capture.ts` で Web の追加欄と共通
+- スクリーンショットは `lib/attach.ts` が `kban-attachments` ブランチに commit し、Issue の背景に Markdown 画像で入れる。表示は `/api/boards/.../img/[name]`
+- **未検証**: Swift のコードはこの環境(Linux)でビルドしていない。`.github/workflows/ios-build.yml` と実機で確認すること
+
 ## もう一つのボード(claude.ai 版)
 
 `board/index.html` は claude.ai の Artifact として公開しているボード(Ken の claude.ai アカウント)。

@@ -24,7 +24,12 @@ export type Board = {
   members: Record<string, Role>; // email → role
   createdAt: string;
 };
-export type User = { uid: string; email: string; name: string; github?: { login: string; token: string } };
+export type User = {
+  uid: string; email: string; name: string;
+  github?: { login: string; token: string };
+  /** iPhone の共有シート/アプリから投稿するための個人トークン(ハッシュだけ保存)と、前回の投稿先 */
+  capture?: { hash: string; last?: { board: string; repo: string } };
+};
 
 type KV = {
   get<T>(k: string): Promise<T | null>;
@@ -132,4 +137,38 @@ export async function setMember(b: Board, email: string, role: Role | null) {
   if (role) { b.members[e] = role; await db().sadd(`member:${e}`, b.id); }
   else { delete b.members[e]; await db().srem(`member:${e}`, b.id); }
   await saveBoard(b);
+}
+
+/* ---------- iPhone capture token / native login code ---------- */
+const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+/** Issue a new capture token (the previous one stops working). The raw token is returned once. */
+export async function issueCaptureToken(uid: string) {
+  const u = await getUser(uid);
+  if (!u) throw new Error("ユーザーが見つかりません");
+  if (u.capture) await db().del(`capture:${u.capture.hash}`);
+  const raw = `kbt_${randomBytes(24).toString("base64url")}`;
+  u.capture = { hash: sha(raw), last: u.capture?.last };
+  await saveUser(u);
+  await db().set(`capture:${u.capture.hash}`, uid);
+  return raw;
+}
+export async function userByCaptureToken(raw: string) {
+  const uid = await db().get<string>(`capture:${sha(raw)}`);
+  return uid ? getUser(uid) : null;
+}
+export async function setLastCapture(uid: string, board: string, repo: string) {
+  const u = await getUser(uid);
+  if (u?.capture) { u.capture.last = { board, repo }; await saveUser(u); }
+}
+/** One-time code (2 min) the iOS app trades for a web session cookie. */
+export async function makeLoginCode(uid: string) {
+  const code = randomBytes(24).toString("base64url");
+  await db().set(`logincode:${sha(code)}`, { uid, exp: Date.now() + 120_000 });
+  return code;
+}
+export async function takeLoginCode(code: string) {
+  const k = `logincode:${sha(code)}`;
+  const v = await db().get<{ uid: string; exp: number }>(k);
+  await db().del(k);
+  return v && v.exp > Date.now() ? v.uid : null;
 }

@@ -47,6 +47,7 @@ kban/
 │  ├─ middleware.ts     未ログインは /login へ
 │  ├─ app/              画面(ui/)と API(api/)
 │  └─ lib/              GitHub 連携、Issue 本文の形式、工程、AI、保存(store)、権限(access)
+├─ ios/                 iPhone アプリ(Web 表示 + 共有シート)。XcodeGen の project.yml
 ├─ templates/           各アプリのリポジトリに入れるワークフローと CLAUDE.md
 ├─ scripts/install.sh   templates をアプリのリポジトリに組み込む
 └─ board/index.html     claude.ai 上で動く軽量版(Issue を使わずに試せる)
@@ -80,7 +81,21 @@ npm install
 npm run dev                  # http://localhost:3000(OAuth のリダイレクト先も localhost で登録)
 ```
 
-### 2. アプリのリポジトリに Claude Code 連携を入れる
+### 2. iPhone アプリ(ios/)
+
+画面は Web(web/)をそのまま表示します。ネイティブなのは「Google ログイン」と「共有シートからの追加」だけです。
+
+- **共有シートから追加**: 写真・スクリーンショットの共有ボタン → **kban** → メモを書いて「追加」。追加先は前回のリポジトリが初期値です。Safari の URL やテキストも同じように送れます
+- **Web の追加欄でも**: 「📷 スクリーンショット」で写真から選ぶ、貼り付け、ドラッグ&ドロップのどれでも添付できます(長辺 1600px に縮めて送信)
+- 画像は、そのリポジトリの `kban-attachments` ブランチに保存され、Issue の「背景」に載ります。kban では共有メンバーにも表示されます
+
+ビルド(Mac): `brew install xcodegen && cd ios && DEVELOPMENT_TEAM=<チームID> xcodegen && open Kban.xcodeproj`
+
+1. Apple Developer で App Group `group.net.ktrips.kban` を作り、`net.ktrips.kban` と `net.ktrips.kban.share` の両方に付ける
+2. 実機で起動 → 「Google でログイン」(ASWebAuthenticationSession。Google は WebView 内のログインを拒否するため)
+3. 以後は共有シートに kban が出ます。トークンは Web の「iPhone から追加」で作り直せます(古いものは無効)
+
+### 3. アプリのリポジトリに Claude Code 連携を入れる
 
 ```bash
 bash scripts/install.sh ~/src/kfit both Kfit    # iOS+Web。最後の引数は Xcode の scheme

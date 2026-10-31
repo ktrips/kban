@@ -123,9 +123,9 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
     });
 }
 
-export async function createCard(token: string, full: string, title: string, target: Target, rank: number) {
+export async function createCard(token: string, full: string, title: string, target: Target, rank: number, idea = title) {
   const { owner, repo } = split(full);
-  const body = renderBody({ idea: title, spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { rank });
+  const body = renderBody({ idea, spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { rank });
   const { data } = await gh(token).issues.create({
     owner, repo, title: title.slice(0, 120), body, labels: ["kban", stageLabel("backlog"), `kban:${target}`],
   });

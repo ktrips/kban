@@ -5,6 +5,7 @@ import { ACTIVE, STAGES, StageId, Card, api, SI, stageName, cssVar, ordered, sor
 import type { Size } from "@/lib/stages";
 import type { Priority } from "@/lib/ai";
 import type { RepoSettings } from "@/lib/store";
+import { QuickAdd, splitIdea } from "./QuickAdd";
 
 /* ---------------- repo board ---------------- */
 type BoardProps = {
@@ -17,7 +18,6 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
   const [stage, setStage] = useState<StageId>("backlog");
   const [openNo, setOpenNo] = useState<number | null>(null);
   const [busy, setBusy] = useState<Record<string, string>>({});
-  const [idea, setIdea] = useState("");
   const [proposal, setProposal] = useState<Priority[] | "loading" | null>(null);
   const base = `/api/boards/${boardId}/r/${repo.full}`;
 
@@ -63,11 +63,15 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
       }
     }, "提案の順番にしました");
   }
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    const t = idea.trim(); if (!t) return;
-    setIdea("");
-    await run("add", "add", () => api(`${base}/cards`, "POST", { title: t }), "バックログに追加しました");
+  async function add(memo: string, files: File[]) {
+    const form = new FormData();
+    form.set("memo", memo);
+    files.forEach((f) => form.append("images", f));
+    await run("add", "add", async () => {
+      const r = await fetch(`${base}/cards`, { method: "POST", body: form });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    }, "バックログに追加しました");
     setStage("backlog");
   }
 
@@ -97,10 +101,7 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
         <a className="btn small" href={`https://github.com/${repo.full}/issues?q=label%3Akban`} target="_blank" rel="noreferrer">GitHub の Issue</a>
       </header>
 
-      {canEdit && <form className="add" onSubmit={add}>
-        <input value={idea} onChange={(e) => setIdea(e.target.value)} placeholder={`${repo.name} で次に作りたいことを書く…`} aria-label="バックログに追加" />
-        <button className="btn primary" type="submit" disabled={!!busy.add}>バックログに追加</button>
-      </form>}
+      {canEdit && <QuickAdd placeholder={`${repo.name} で次に作りたいことを書く…`} busy={!!busy.add} onAdd={add} />}
 
       <div className="summary">
         <div className="sum next">
@@ -161,7 +162,7 @@ export function RepoBoard({ boardId, boardName, canEdit, repo, repos, cards: all
         ))}
       </div></div>
 
-      {open && <Sheet canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
+      {open && <Sheet imgBase={`${base}/img`} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
     </>
   );
 }
@@ -205,8 +206,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ imgBase, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  imgBase: string; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -214,6 +215,7 @@ function Sheet({ canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
     title: c.title, idea: c.idea, spec: c.spec, prompt: c.prompt,
     steps: c.steps.map((x) => x.text).join("\n"), criteria: c.criteria.map((x) => x.text).join("\n"),
   });
+  const shots = splitIdea(c.idea, imgBase).images;
   const [feedback, setFeedback] = useState("");
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
@@ -291,7 +293,8 @@ function Sheet({ canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
               onChange={(e) => patch(c, { dependsOn: e.target.checked ? [...c.dependsOn, o.number] : c.dependsOn.filter((n) => n !== o.number) })} /> #{o.number} {o.title} <span className="note">{stageName(o.stage)}</span></label>
           )) : <span className="note">他のタスクはありません</span>}
         </div></div>
-        <div className="field"><label htmlFor="idea">アイデア</label><textarea id="idea" value={f.idea} onChange={set("idea")} /></div>
+        <div className="field"><label htmlFor="idea">アイデア</label><textarea id="idea" value={f.idea} onChange={set("idea")} />
+          {!!shots.length && <div className="thumbs">{shots.map((u) => <a key={u} className="thumb big" href={u} target="_blank" rel="noreferrer"><img src={u} alt="スクリーンショット" /></a>)}</div>}</div>
         <div className="field"><label htmlFor="spec">仕様</label><textarea id="spec" style={{ minHeight: 100 }} value={f.spec} onChange={set("spec")} /></div>
         <div className="field"><label htmlFor="steps">進め方(1行に1ステップ)</label><textarea id="steps" value={f.steps} onChange={set("steps")} /></div>
         <div className="field"><label htmlFor="crit">受入条件(1行に1つ)</label><textarea id="crit" value={f.criteria} onChange={set("criteria")} /></div>

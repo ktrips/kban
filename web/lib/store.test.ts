@@ -24,3 +24,16 @@ test("boards: own, shared by email, unshare, delete", async () => {
   await deleteBoard((await getBoard(b.id))!);
   assert.equal((await boardsFor(ken.uid, ken.email)).own.length, 0);
 });
+
+test("capture token: works once issued, old one is revoked, login code is single use", async () => {
+  const { ensureUser, issueCaptureToken, userByCaptureToken, makeLoginCode, takeLoginCode } = await import("./store.ts");
+  const u = await ensureUser("google:cap", "cap@example.com", "Cap");
+  const t1 = await issueCaptureToken(u.uid);
+  assert.equal((await userByCaptureToken(t1))?.uid, u.uid);
+  const t2 = await issueCaptureToken(u.uid);
+  assert.equal(await userByCaptureToken(t1), null);
+  assert.equal((await userByCaptureToken(t2))?.uid, u.uid);
+  const code = await makeLoginCode(u.uid);
+  assert.equal(await takeLoginCode(code), u.uid);
+  assert.equal(await takeLoginCode(code), null);
+});
