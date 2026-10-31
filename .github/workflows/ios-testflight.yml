@@ -14,9 +14,18 @@ jobs:
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      DEVELOPMENT_TEAM: ${{ vars.DEVELOPMENT_TEAM }}
+      # Variable に登録するのが基本。Secret に入れた場合も使えるようにしておく
+      DEVELOPMENT_TEAM: ${{ vars.DEVELOPMENT_TEAM || secrets.DEVELOPMENT_TEAM }}
     steps:
       - uses: actions/checkout@v4
+      - name: 必要な設定がそろっているか確認
+        run: |
+          missing=""
+          [ -z "$DEVELOPMENT_TEAM" ] && missing="$missing DEVELOPMENT_TEAM(Variable)"
+          [ -z "$ASC_KEY_ID" ] && missing="$missing ASC_KEY_ID(Secret)"
+          [ -z "$ASC_ISSUER_ID" ] && missing="$missing ASC_ISSUER_ID(Secret)"
+          [ -z "${{ secrets.ASC_KEY_P8 }}" ] && missing="$missing ASC_KEY_P8(Secret)"
+          if [ -n "$missing" ]; then echo "::error::未設定です:$missing(Settings → Secrets and variables → Actions)"; exit 1; fi
       - name: App Store Connect API キーを置く
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
