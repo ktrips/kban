@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   beta:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -32,6 +32,12 @@ jobs:
         run: |
           mkdir -p ~/.private_keys
           printf '%s' "$ASC_KEY_P8" > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+      - name: Xcode 26 以降を選ぶ(App Store Connect は iOS 26 SDK 以降でのビルドが必須)
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$x" ] || { echo "::error::Xcode 26 がランナーにありません"; ls /Applications | grep -i xcode; exit 1; }
+          sudo xcode-select -s "$x"
+          xcodebuild -version
       - run: brew install xcodegen
       - name: Xcode プロジェクトを生成
         run: cd ios && xcodegen
