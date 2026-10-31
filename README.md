@@ -85,7 +85,7 @@ kban/
 
 ### 1. ボード(web/)を Firebase App Hosting にデプロイ(https://kban.ktrips.net)
 
-1. Firebase コンソールでプロジェクトを作り(Blaze プランが必要)、**Firestore** をネイティブモードで作成。`.firebaserc` の `YOUR_FIREBASE_PROJECT_ID` を実際のプロジェクト ID に書き換える
+1. Firebase コンソールでプロジェクトを作り(Blaze プランが必要)、**Firestore** をネイティブモードで作成。`.firebaserc` のプロジェクト ID は `kbanprj`
 2. `firebase deploy --only firestore:rules` でルールを反映(ブラウザからの直接アクセスは全拒否。データはサーバーからだけ読み書きする)
 3. Google Cloud Console で OAuth クライアント ID(ウェブ)を作り、承認済みの JavaScript 生成元に `https://kban.ktrips.net`、リダイレクト URI に `https://kban.ktrips.net/api/auth/callback/google` を登録
 4. GitHub → Settings → Developer settings → **OAuth Apps** で新規作成し、callback URL に `https://kban.ktrips.net/api/github/callback` を登録
