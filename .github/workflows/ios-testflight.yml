@@ -28,7 +28,10 @@ jobs:
         run: cd ios && xcodegen
       - name: Archive
         run: |
+          set -o pipefail
           cd ios
+          # 失敗したとき原因が埋もれないよう、ログを残して error 行だけを最後にまとめて出す
+          trap 'echo "::group::error lines"; grep -nE "error:|Error Domain|requires a development team|No profiles|provisioning" "$RUNNER_TEMP/archive.log" | head -40; echo "::endgroup::"' ERR
           xcodebuild archive \
             -project Kban.xcodeproj -scheme Kban -configuration Release \
             -destination 'generic/platform=iOS' \
@@ -37,7 +40,7 @@ jobs:
             -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" 2>&1 | tee "$RUNNER_TEMP/archive.log"
       - name: ipa を作る
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
