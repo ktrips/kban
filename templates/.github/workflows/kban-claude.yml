@@ -44,9 +44,10 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         id: claude
         with:
-          # どちらか一方を Secrets に設定(Claude の契約なら claude setup-token で発行した OAuth トークン)
+          # Claude の契約(claude setup-token で発行した OAuth トークン)を優先する。トークンがあるときは API キーを渡さない
+          # (両方登録していても、従量課金の API キーは使われない)。契約を使わない場合だけ ANTHROPIC_API_KEY を登録する
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           label_trigger: claude
           trigger_phrase: "@claude"
           claude_args: >-

@@ -154,13 +154,13 @@ bash scripts/install.sh ~/src/kmap both Komap
 
 1. 追加されたファイルをコミットして main に push
 2. Claude GitHub App をインストール(ターミナルの Claude Code で `/install-github-app`)
-3. Secrets に `CLAUDE_CODE_OAUTH_TOKEN`(`claude setup-token`)か `ANTHROPIC_API_KEY`
+3. Secrets に `CLAUDE_CODE_OAUTH_TOKEN`(`claude setup-token`。Claude の契約=Subscription で動く)。契約を使わないときだけ `ANTHROPIC_API_KEY`(従量課金)。両方あっても、トークンがあれば API キーは使われません
 4. Web: PR ごとのプレビューのデプロイ(Firebase Hosting のプレビューチャンネルなど)を用意する。GitHub の `deployment_status` が成功になると自動で「確認」へ進む(Firebase でこのイベントが出るかは未確認)
 5. iOS: TestFlight 用 Secrets を登録し、手元で一度 `fastlane match appstore`
 
 | Secret | 用途 |
 |---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` | Claude Code の実行 |
+| `CLAUDE_CODE_OAUTH_TOKEN`(優先)/ `ANTHROPIC_API_KEY` | Claude Code の実行(前者は Claude の契約、後者は API の従量課金) |
 | `ASC_KEY_ID` / `ASC_ISSUER_ID` / `ASC_KEY_P8` | App Store Connect API キー |
 | `MATCH_GIT_URL` / `MATCH_PASSWORD` / `MATCH_GIT_BASIC_AUTHORIZATION` | 署名証明書(fastlane match) |
 
