@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, blockersOf, progress, StagesBar, tLabel } from "./common";
 import type { RepoSettings, Role } from "@/lib/store";
+import { MonthMeter } from "./Usage";
+import { ClaudeLink } from "./ClaudeLink";
 
 export type BoardData = {
-  board: { id: string; name: string; ownerEmail: string; repos: RepoSettings[]; members?: Record<string, Role> };
+  board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
   role: "owner" | Role; canEdit: boolean; cards: Card[]; failed: string[];
 };
 
@@ -23,6 +25,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
           <span className="sep">/</span>
           <h1 style={{ fontFamily: "var(--f-display)", fontSize: 20, fontWeight: 400 }}>{board.name}</h1>
         </div>
+        <MonthMeter cards={cards} budget={board.budgetTokens} />
         {role !== "owner" && <span className="chip">{board.ownerEmail} のボード · {canEdit ? "編集できる" : "見るだけ"}</span>}
         <div className="spacer" />
         {role === "owner" && <button className="btn small" onClick={() => setSheet("share")}>共有{board.members && Object.keys(board.members).length ? ` (${Object.keys(board.members).length})` : ""}</button>}
@@ -73,7 +76,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       {sheet === "pick" && <Picker boardId={board.id} have={board.repos.map((r) => r.full)} onClose={() => setSheet(null)} done={async (full) => { setSheet(null); await reload(); toast(`${full} を追加しました`); }} toast={toast} />}
       {sheet === "share" && <Share data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
-      {sheet && typeof sheet === "object" && <RepoSettingsSheet boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
+      {sheet && typeof sheet === "object" && <RepoSettingsSheet isOwner={role === "owner"} boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
     </>
   );
 }
@@ -178,12 +181,15 @@ function Share({ data, onClose, reload, toast }: { data: BoardData; onClose: () 
 function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const [name, setName] = useState(data.board.name);
   const [confirm, setConfirm] = useState(false);
-  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
+  const [budget, setBudget] = useState(data.board.budgetTokens ? String(Math.round(data.board.budgetTokens / 10000)) : "");
+  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name, budgetTokens: budget.trim() ? Number(budget) * 10000 : null }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function del() { try { await api(`/api/boards/${data.board.id}`, "DELETE"); location.hash = ""; toast("ボードを削除しました"); } catch (e) { toast((e as Error).message); } }
   return (
     <Sheet title="ボード設定" onClose={onClose}>
       <div className="section">
         <div className="field"><label htmlFor="bsName">ボード名</label><input id="bsName" value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <div className="field"><label htmlFor="bsBudget">月のトークン予算(万トークン・任意)</label><input id="bsBudget" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} placeholder="例: 500(= 500万)" />
+          <span className="note">Claude Code に渡す前の「何%使うか」の分母です。Claude の契約の残り枠は取得できないので、自分で決めた枠になります。</span></div>
         <div className="btns"><button className="btn primary" onClick={save} disabled={!name.trim()}>保存</button></div>
       </div>
       <div className="section">
@@ -197,7 +203,7 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
   );
 }
 
-function RepoSettingsSheet({ boardId, repo, onClose, reload, toast }: { boardId: string; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
+function RepoSettingsSheet({ isOwner, boardId, repo, onClose, reload, toast }: { boardId: string; isOwner: boolean; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const [f, setF] = useState({ name: repo.name, target: repo.target, about: repo.about });
   async function save() { try { await api(`/api/boards/${boardId}/repos`, "PATCH", { full: repo.full, ...f }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function remove() { try { await api(`/api/boards/${boardId}/repos?full=${encodeURIComponent(repo.full)}`, "DELETE"); await reload(); onClose(); toast("ボードから外しました"); } catch (e) { toast((e as Error).message); } }
@@ -211,6 +217,7 @@ function RepoSettingsSheet({ boardId, repo, onClose, reload, toast }: { boardId:
         <div className="field"><label htmlFor="rsAbout">アプリの概要(AI が優先順位や仕様を考えるときに使います)</label><textarea id="rsAbout" value={f.about} onChange={(e) => setF({ ...f, about: e.target.value })} /></div>
         <div className="btns"><button className="btn primary" onClick={save}>保存</button></div>
       </div>
+      <ClaudeLink base={`/api/boards/${boardId}/r/${repo.full}`} isOwner={isOwner} target={repo.target} toast={toast} />
       <div className="section"><h3>ボードから外す</h3><p className="note">GitHub の Issue とラベルは残ります。</p><div className="btns"><button className="btn" onClick={remove}>{repo.name} を外す</button></div></div>
     </Sheet>
   );

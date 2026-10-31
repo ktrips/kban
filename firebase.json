@@ -1,0 +1,10 @@
+{
+  "apphosting": {
+    "backendId": "kban",
+    "rootDir": "web",
+    "ignore": ["node_modules", ".git", "firebase-debug.*.log", "functions"]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

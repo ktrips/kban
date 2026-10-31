@@ -1,7 +1,7 @@
 # kban: PR・CI・デプロイの進み具合に合わせて Issue の kban:<工程> ラベルを自動で進める。
 #   PR が開く            → テスト
 #   kban-ci が成功     → デプロイ
-#   プレビューのデプロイ成功(Vercel など) → 確認(プレビューURLを記録)
+#   プレビューのデプロイ成功(Firebase Hosting など) → 確認(プレビューURLを記録)
 #   PR がマージ          → 完了
 name: kban-flow
 

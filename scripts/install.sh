@@ -76,5 +76,5 @@ kban を組み込みました: $TARGET ($KIND)
   3. Secrets に CLAUDE_CODE_OAUTH_TOKEN か ANTHROPIC_API_KEY を設定
 EOF
 [ "$KIND" != web ] && echo "  4. TestFlight 用 Secrets: ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 / MATCH_GIT_URL / MATCH_PASSWORD / MATCH_GIT_BASIC_AUTHORIZATION"
-[ "$KIND" != ios ] && echo "  ・Web は Vercel の GitHub 連携を有効にすると、PR ごとのプレビューで自動的に「確認」へ進みます"
+[ "$KIND" != ios ] && echo "  ・Web は PR ごとのプレビューのデプロイ(Firebase Hosting のプレビューチャンネルなど)が GitHub の deployment_status を成功にすると、自動的に「確認」へ進みます"
 true

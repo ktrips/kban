@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { Board, Role, ensureUser, getBoard, githubToken, User } from "./store";
+import { Board, Role, ensureUser, getBoard, githubToken, userByCaptureToken, User } from "./store";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -20,7 +20,19 @@ export type Access = { user: User; board: Board; role: "owner" | Role; canEdit: 
  * GitHub account, so people the board is shared with don't need GitHub access themselves.
  */
 export async function access(boardId: string, need: Level): Promise<Access> {
-  const user = await me();
+  return accessFor(await me(), boardId, need);
+}
+
+/** Session user, or the owner of a capture token sent as `Authorization: Bearer kbt_…` (iPhone share sheet). */
+export async function meOrCapture(req: Request): Promise<User> {
+  const m = /^Bearer (kbt_\S+)$/.exec(req.headers.get("authorization") || "");
+  if (!m) return me();
+  const u = await userByCaptureToken(m[1]);
+  if (!u) throw new HttpError(401, "トークンが無効です。kban でトークンを作り直してください");
+  return u;
+}
+
+export async function accessFor(user: User, boardId: string, need: Level): Promise<Access> {
   const board = await getBoard(boardId);
   if (!board) throw new HttpError(404, "ボードが見つかりません");
   const role: Access["role"] | undefined = board.owner === user.uid ? "owner" : board.members[user.email];

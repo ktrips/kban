@@ -1,0 +1,39 @@
+# Firebase App Hosting の設定(backend の Root directory は web)。
+# 秘密の値は Secret Manager に入れる: firebase apphosting:secrets:set <名前>
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  maxInstances: 2
+
+env:
+  - variable: AUTH_URL
+    value: https://kban.ktrips.net
+    availability: [RUNTIME]
+  - variable: AUTH_TRUST_HOST
+    value: "true"
+    availability: [RUNTIME]
+  - variable: KBAN_MODEL
+    value: claude-sonnet-5-5
+    availability: [RUNTIME]
+  # 任意: ログインできる Google アカウントを絞る(カンマ区切り)。空なら誰でもログインできる
+  # - variable: KBAN_ALLOWED_EMAILS
+  #   value: you@example.com
+  #   availability: [RUNTIME]
+  - variable: AUTH_SECRET
+    secret: kban-auth-secret
+    availability: [RUNTIME]
+  - variable: AUTH_GOOGLE_ID
+    secret: kban-google-id
+    availability: [RUNTIME]
+  - variable: AUTH_GOOGLE_SECRET
+    secret: kban-google-secret
+    availability: [RUNTIME]
+  - variable: GITHUB_CLIENT_ID
+    secret: kban-github-id
+    availability: [RUNTIME]
+  - variable: GITHUB_CLIENT_SECRET
+    secret: kban-github-secret
+    availability: [RUNTIME]
+  - variable: ANTHROPIC_API_KEY
+    secret: kban-anthropic-key
+    availability: [RUNTIME]

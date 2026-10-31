@@ -20,6 +20,12 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
     try { const { id } = await api<{ id: string }>("/api/boards", "POST", { name }); location.hash = `b/${id}`; }
     catch (e) { toast((e as Error).message); }
   }
+  const [token, setToken] = useState("");
+  async function makeToken() {
+    if (token || confirm("iPhone 用のトークンを作ります。前に作ったトークンは使えなくなります。")) {
+      try { setToken((await api<{ token: string }>("/api/me/capture", "POST")).token); } catch (e) { toast((e as Error).message); }
+    }
+  }
   async function unlink() {
     try { await api("/api/me", "DELETE"); reloadMe(); toast("GitHub の連携を外しました"); } catch (e) { toast((e as Error).message); }
   }
@@ -47,6 +53,16 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
         {me.github
           ? <div className="btns"><span>連携中: <b className="num">{me.github.login}</b></span><a className="btn small" href="/api/github/connect">連携し直す</a><button className="btn small ghost" onClick={unlink}>連携を外す</button></div>
           : <div className="btns"><span className="note">ボードを作ってリポジトリを選ぶには、GitHub アカウントの連携が必要です。共有されたボードは連携なしで使えます。</span><a className="btn primary" href="/api/github/connect">GitHub を連携</a></div>}
+      </section>
+
+      <section className="section">
+        <h3>iPhone から追加</h3>
+        <p className="note" style={{ margin: 0 }}>iOS アプリを入れると、写真やスクリーンショットの「共有」から kban を選ぶだけでバックログに入ります。アプリの「トークン」欄に貼ることもできます。</p>
+        <div className="btns">
+          <button className="btn small" onClick={makeToken}>{token ? "トークンを作り直す" : "iPhone 用トークンを作る"}</button>
+          {token && <><input className="mono" readOnly value={token} onFocus={(e) => e.target.select()} style={{ flex: 1, minWidth: 200, border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px", background: "var(--panel)" }} aria-label="iPhone 用トークン" />
+            <button className="btn small" onClick={() => navigator.clipboard.writeText(token).then(() => toast("コピーしました"))}>コピー</button></>}
+        </div>
       </section>
 
       <h1>自分のボード</h1>

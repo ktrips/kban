@@ -167,3 +167,27 @@ h1{font-size:15px;margin:0}
 .pick .when{margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--f-mono)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:40;font-size:13px;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.card,.repo{transition:border-color .12s}.sheet{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
+
+/* quick add: memo + screenshots */
+.add.quick{flex-direction:column;align-items:stretch}
+.add.quick textarea{width:100%;border:0;background:transparent;padding:6px 8px;font-size:16px;resize:vertical;min-height:52px;font-family:inherit}
+.add.quick textarea:focus{outline:none}
+.add.quick .row{display:flex;gap:8px;align-items:center}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:0 4px}
+.thumb{position:relative;display:inline-block}
+.thumb img{height:72px;border-radius:8px;border:1px solid var(--line);display:block}
+.thumb.big img{height:140px}
+.thumb button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--ink);color:var(--panel);cursor:pointer;line-height:1}
+
+/* Claude Code progress */
+.progress{display:flex;flex-direction:column;gap:8px}
+.chip.st.run{border-color:var(--s-building);color:var(--s-building)}
+.chip.st.ok{border-color:var(--s-done);color:var(--s-done)}
+.chip.st.ng{border-color:#C92A2A;color:#C92A2A}
+.claude-note{white-space:pre-wrap;font:13px/1.5 inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:240px;overflow:auto;margin:6px 0}
+
+/* usage estimate */
+.estimate{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.meter{height:8px;border-radius:99px;background:var(--line);display:flex;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--muted)}
+.meter i.plus{background:var(--s-building)}

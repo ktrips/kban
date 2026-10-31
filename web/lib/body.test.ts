@@ -14,7 +14,7 @@ test("body and markers round-trip", () => {
   };
   const md = renderBody(b, { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9" });
   assert.deepEqual(parseBody(md), b);
-  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined });
+  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined, tokens: undefined, cost: undefined });
 });
 
 test("empty sections stay empty", () => {
@@ -42,4 +42,18 @@ test("linked issue from PR body or branch", () => {
   assert.equal(linkedIssue("Implements it.\n\nCloses #12", "x"), 12);
   assert.equal(linkedIssue("", "claude/issue-34-20261030-0912"), 34);
   assert.equal(linkedIssue("nothing", "main"), null);
+});
+
+test("idea with screenshot markdown survives render → parse", () => {
+  const idea = "ホームのボタンが切れる\n\n![スクリーンショット](https://github.com/ktrips/kfit/blob/kban-attachments/attachments/a.jpg?raw=true)";
+  const md = renderBody({ idea, spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { rank: 1 });
+  assert.equal(parseBody(md).idea, idea);
+});
+
+test("usage markers round-trip", () => {
+  const md = renderBody({ idea: "x", spec: "", steps: [], criteria: [], dependsOn: [], prompt: "" }, { rank: 2, tokens: 123456, cost: 1.23 });
+  const m = parseMarkers(md);
+  assert.equal(m.tokens, 123456);
+  assert.equal(m.cost, 1.23);
+  assert.equal(parseMarkers("<!-- kban:rank=1 -->").tokens, undefined);
 });

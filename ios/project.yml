@@ -1,0 +1,67 @@
+# kban の iOS アプリ。画面は Web(web/)をそのまま表示し、ネイティブは「ログイン」と「共有シートからの追加」だけ。
+# Xcode プロジェクトは XcodeGen で生成する:  brew install xcodegen && cd ios && DEVELOPMENT_TEAM=XXXXXXXXXX xcodegen && open Kban.xcodeproj
+name: Kban
+options:
+  bundleIdPrefix: net.ktrips
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Kban:
+    type: application
+    platform: iOS
+    sources: [Sources/App, Sources/Shared]
+    dependencies:
+      - target: KbanShare
+    entitlements:
+      path: Sources/App/Kban.entitlements
+      properties:
+        com.apple.security.application-groups: [group.net.ktrips.kban]
+    info:
+      path: Sources/App/Info.plist
+      properties:
+        CFBundleDisplayName: kban
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        CFBundleURLTypes:
+          - CFBundleURLName: net.ktrips.kban
+            CFBundleURLSchemes: [kban]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.ktrips.kban
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  KbanShare:
+    type: app-extension
+    platform: iOS
+    sources: [Sources/Share, Sources/Shared]
+    entitlements:
+      path: Sources/Share/KbanShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.net.ktrips.kban]
+    info:
+      path: Sources/Share/Info.plist
+      properties:
+        CFBundleDisplayName: kban
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 10
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.ktrips.kban.share
+schemes:
+  Kban:
+    build:
+      targets:
+        Kban: all
+        KbanShare: all

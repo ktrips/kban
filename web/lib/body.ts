@@ -12,7 +12,7 @@ export type CardBody = {
   dependsOn: number[];
   prompt: string;
 };
-export type Markers = { rank?: number; reason?: string; pr?: string; preview?: string; parallel?: boolean };
+export type Markers = { rank?: number; reason?: string; pr?: string; preview?: string; parallel?: boolean; tokens?: number; cost?: number };
 
 const H = { idea: "背景", spec: "仕様", steps: "進め方", criteria: "受入条件", deps: "前提", prompt: "Claude Codeへの指示" } as const;
 
@@ -66,7 +66,10 @@ export function parseMarkers(body: string | null | undefined): Markers {
   const get = (k: string) => new RegExp(`<!-- kban:${k}=(.*?) -->`).exec(body || "")?.[1];
   const rank = get("rank");
   const par = get("parallel");
+  const num = (k: string) => { const v = get(k); return v ? Number(v) || undefined : undefined; };
   return {
+    tokens: num("tokens"),
+    cost: num("cost"),
     rank: rank !== undefined && rank !== "" ? Number(rank) : undefined,
     reason: get("reason") || undefined,
     pr: get("pr") || undefined,
