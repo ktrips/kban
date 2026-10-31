@@ -30,13 +30,14 @@ targets:
         CFBundleDisplayName: kban
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         CFBundleURLTypes:
           - CFBundleURLName: net.ktrips.kban
             CFBundleURLSchemes: [kban]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.ktrips.kban
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   KbanShare:
     type: app-extension
@@ -61,6 +62,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.ktrips.kban.share
+        TARGETED_DEVICE_FAMILY: "1"
 schemes:
   Kban:
     build:
