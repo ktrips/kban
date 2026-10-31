@@ -6,9 +6,11 @@ runConfig:
   maxInstances: 2
 
 env:
-  - variable: AUTH_URL
-    value: https://kban.ktrips.net
+  # 正規のホスト(App Hosting の標準URL)。kban.ktrips.net / kanban.ktrips.net / board.ktrips.net などで開いても、ここへ転送する
+  - variable: KBAN_CANONICAL_HOST
+    value: kban--kbanprj.asia-east1.hosted.app
     availability: [RUNTIME]
+  # AUTH_URL は固定しない(アクセスしたホストで動かす)
   - variable: AUTH_TRUST_HOST
     value: "true"
     availability: [RUNTIME]

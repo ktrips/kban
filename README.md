@@ -83,12 +83,12 @@ kban/
 
 ## セットアップ
 
-### 1. ボード(web/)を Firebase App Hosting にデプロイ(https://kban.ktrips.net)
+### 1. ボード(web/)を Firebase App Hosting にデプロイ(https://kban--kbanprj.asia-east1.hosted.app)
 
 1. Firebase コンソールでプロジェクトを作り(Blaze プランが必要)、**Firestore** をネイティブモードで作成。`.firebaserc` のプロジェクト ID は `kbanprj`
 2. `firebase deploy --only firestore:rules` でルールを反映(ブラウザからの直接アクセスは全拒否。データはサーバーからだけ読み書きする)
-3. Google Cloud Console で OAuth クライアント ID(ウェブ)を作り、承認済みの JavaScript 生成元に `https://kban.ktrips.net`、リダイレクト URI に `https://kban.ktrips.net/api/auth/callback/google` を登録
-4. GitHub → Settings → Developer settings → **OAuth Apps** で新規作成し、callback URL に `https://kban.ktrips.net/api/github/callback` を登録
+3. Google Cloud Console で OAuth クライアント ID(ウェブ)を作り、承認済みの JavaScript 生成元に `https://kban--kbanprj.asia-east1.hosted.app`、リダイレクト URI に `https://kban--kbanprj.asia-east1.hosted.app/api/auth/callback/google` を登録
+4. GitHub → Settings → Developer settings → **OAuth Apps** で新規作成し、callback URL に `https://kban--kbanprj.asia-east1.hosted.app/api/github/callback` を登録
 5. 秘密の値を Secret Manager に登録(名前は `web/apphosting.yaml` と同じ):
    ```bash
    for n in kban-auth-secret kban-google-id kban-google-secret kban-github-id kban-github-secret kban-anthropic-key; do
@@ -97,7 +97,7 @@ kban/
    ```
    `kban-auth-secret` は `openssl rand -base64 32` の値(後で変えると GitHub 連携が全員やり直し)。ログインを絞るなら `apphosting.yaml` の `KBAN_ALLOWED_EMAILS` を有効にする
 6. `firebase apphosting:backends:create --backend kban --root-dir web` で backend を作り、`ktrips/kban` の main に GitHub 連携する(push で自動デプロイ)
-7. Firebase コンソール → App Hosting → kban → 設定 → ドメインで `kban.ktrips.net` を追加し、表示された DNS レコードを `ktrips.net` に登録
+7. Firebase コンソール → App Hosting → kban → 設定 → ドメインで `kban.ktrips.net` `kanban.ktrips.net` `board.ktrips.net` を追加し(標準 URL へ転送されます)、表示された DNS レコードを `ktrips.net` に登録
 8. 開いて Google でログイン → GitHub を連携 → ボードを作成 → リポジトリを追加
 
 ローカルで動かすとき:

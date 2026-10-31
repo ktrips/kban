@@ -1,7 +1,7 @@
 import Foundation
 
 enum Config {
-    static let baseURL = URL(string: "https://kban.ktrips.net")!
+    static let baseURL = URL(string: "https://kban--kbanprj.asia-east1.hosted.app")!
     static let group = "group.net.ktrips.kban"
 }
 
