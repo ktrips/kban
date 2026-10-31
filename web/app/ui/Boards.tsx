@@ -40,7 +40,7 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
   return (
     <>
       <header>
-        <span className="logo">k<b>ban</b></span>
+        <span className="logo"><b>K</b>ban</span>
         <div className="sub">リポジトリごとのバックログから、AIで実装・テスト・デプロイ・確認まで</div>
         <div className="spacer" />
         <span className="note">{me.user.email}</span>

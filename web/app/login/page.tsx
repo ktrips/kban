@@ -8,7 +8,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   return (
     <div className="wrap" style={{ minHeight: "100%", justifyContent: "center", alignItems: "center" }}>
       <div className="section" style={{ maxWidth: 420, width: "100%", gap: 16, padding: 24 }}>
-        <div className="logo">k<b>ban</b></div>
+        <div className="logo"><b>K</b>ban</div>
         <p style={{ margin: 0 }}>Kban - Kanban Board for Claude AI</p>
         <form action={async () => { "use server"; await signIn("google", { redirectTo: to }); }}>
           <button className="btn primary" type="submit" style={{ width: "100%", justifyContent: "center", padding: "10px 14px" }}>Google でログイン</button>

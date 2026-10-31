@@ -123,6 +123,26 @@ npm run dev                  # http://localhost:3000(OAuth のリダイレクト
 2. 実機で起動 → 「Google でログイン」(ASWebAuthenticationSession。Google は WebView 内のログインを拒否するため)
 3. 以後は共有シートに kban が出ます。トークンは Web の「iPhone から追加」で作り直せます(古いものは無効)
 
+#### iPhone アプリを TestFlight に配信する
+
+`ios-testflight` ワークフロー(Actions → ios-testflight → Run workflow)が、署名・ビルド・TestFlight へのアップロードまでを行います。署名は App Store Connect の API キーによる自動署名で、証明書のリポジトリ(fastlane match)は要りません。
+
+最初に一度だけ:
+
+1. Apple Developer で App Group `group.net.ktrips.kban` を作る(上の手順 1)
+2. [App Store Connect](https://appstoreconnect.apple.com/apps) で新規 App を作る。バンドル ID は `net.ktrips.kban`(`net.ktrips.kban.share` は拡張なので、App は 1 つでよい)
+3. App Store Connect → ユーザとアクセス → 統合 → App Store Connect API で、**App 管理**以上の権限のキーを作り、`.p8` をダウンロードする(一度しか取れない)
+4. このリポジトリ(ktrips/kban)の Settings → Secrets and variables → Actions に登録する
+
+| 種類 | 名前 | 値 |
+|---|---|---|
+| Secret | `ASC_KEY_ID` | API キーの Key ID |
+| Secret | `ASC_ISSUER_ID` | Issuer ID |
+| Secret | `ASC_KEY_P8` | `.p8` ファイルの中身(`-----BEGIN PRIVATE KEY-----` から末尾まで) |
+| Variable | `DEVELOPMENT_TEAM` | Apple Developer のチーム ID(10 文字) |
+
+アップロード後、App Store Connect → TestFlight で処理が終わると、TestFlight アプリから入れられます。ビルド番号は Actions の実行番号です。
+
 ### 3. アプリのリポジトリに Claude Code 連携を入れる
 
 ```bash

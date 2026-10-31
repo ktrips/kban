@@ -1,0 +1,65 @@
+name: ios-testflight
+# kban の iOS アプリ(ios/)を署名して TestFlight にアップロードする。手動実行(Actions → ios-testflight → Run workflow)。
+# 署名は App Store Connect の API キーによる自動署名(証明書とプロビジョニングは Apple 側で自動作成)。
+# 必要な Secrets / Variables は README の「iPhone アプリを TestFlight に配信する」を参照。
+on:
+  workflow_dispatch:
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+jobs:
+  beta:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      DEVELOPMENT_TEAM: ${{ vars.DEVELOPMENT_TEAM }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: App Store Connect API キーを置く
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+      - run: brew install xcodegen
+      - name: Xcode プロジェクトを生成
+        run: cd ios && xcodegen
+      - name: Archive
+        run: |
+          cd ios
+          xcodebuild archive \
+            -project Kban.xcodeproj -scheme Kban -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Kban.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+      - name: ipa を作る
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${DEVELOPMENT_TEAM}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>destination</key><string>export</string>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Kban.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: TestFlight にアップロード
+        run: |
+          xcrun altool --upload-app --type ios \
+            -f "$RUNNER_TEMP"/export/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
