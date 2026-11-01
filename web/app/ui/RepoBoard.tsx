@@ -118,6 +118,7 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
       <header>
         <div className="crumb">
           <a className="logo" href="#" aria-label="ボード一覧へ" style={{ color: "inherit", textDecoration: "none" }}><b>K</b>ban</a>
+          <span className="tagline">Kanban for Life</span>
           <span className="sep">/</span>
           <button type="button" className="btn ghost" onClick={() => go(null)}>{boardName}</button>
           <span className="sep">/</span>

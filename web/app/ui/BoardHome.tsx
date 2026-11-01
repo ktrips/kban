@@ -22,6 +22,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       <header>
         <div className="crumb">
           <a className="logo" href="#" aria-label="ボード一覧へ" style={{ color: "inherit", textDecoration: "none" }}><b>K</b>ban</a>
+          <span className="tagline">Kanban for Life</span>
           <span className="sep">/</span>
           <h1 style={{ fontFamily: "var(--f-display)", fontSize: 20, fontWeight: 400 }}>{board.name}</h1>
         </div>
