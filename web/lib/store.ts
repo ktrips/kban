@@ -110,7 +110,8 @@ export async function ensureUser(uid: string, email: string, name: string) {
 }
 export async function githubToken(uid: string) {
   const u = await getUser(uid);
-  return u?.github ? open(u.github.token) : null;
+  if (!u?.github) return null;
+  try { return open(u.github.token); } catch { return null; } // AUTH_SECRET を変えると復号できない。連携し直してもらう
 }
 
 /* ---------- boards ---------- */
