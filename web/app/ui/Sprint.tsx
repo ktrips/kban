@@ -3,6 +3,7 @@
 import { Card, cssVar, stageName } from "./common";
 import { addWeeks, sprintLoad, weekLabel, weekOf, weekRange, remaining } from "@/lib/sprint";
 import { fmtTokens } from "@/lib/usage";
+import { ageText, resetText, type ClaudeLimits } from "@/lib/limits";
 
 const dates = (w: string) => {
   const [s, e] = weekRange(w).map((t) => new Date(t * 1000));
@@ -14,11 +15,15 @@ const dates = (w: string) => {
  * スプリント(週)のパネル。バックログ等のカードをここへドラッグ(スマホは長押しして指で動かす)すると、その週のタスクになる。
  * 量は「これから使う見込み(目安)+その週にすでに使った分」を、ボード設定の週の上限に対する % で出す。上限はボード全体で共通。
  */
-export function SprintPanel({ week, setWeek, all, repo, limit, canEdit, onOpen, onRemove, onDrop }: {
-  week: string; setWeek: (w: string) => void; all: Card[]; repo: string; limit?: number; canEdit: boolean;
+export function SprintPanel({ week, setWeek, all, repo, limit, claude, canEdit, onOpen, onRemove, onDrop }: {
+  week: string; setWeek: (w: string) => void; all: Card[]; repo: string; limit?: number; claude?: ClaudeLimits | null; canEdit: boolean;
   onOpen: (c: Card) => void; onRemove: (c: Card) => void; onDrop: () => void;
 }) {
-  const l = sprintLoad(week, all, limit);
+  const l = sprintLoad(week, all, limit, new Date(), claude);
+  const fromClaude = l.usedFrom === "claude";
+  const usedText = fromClaude
+    ? <>Claude の週の枠 使用済み <b>{l.usedPct}%</b>(実際の値・{ageText(claude!.at)}に取得・リセット {resetText(l.resetsAt!)})</>
+    : <>使用済み {fmtTokens(l.used)}{l.usedPct !== undefined ? `(${l.usedPct}%)` : ""}<span className="note">(kban から動かした分)</span></>;
   const mine = l.cards.filter((c) => c.repo === repo);
   const others = l.cards.length - mine.length;
   const w = (n?: number) => `${Math.min(100, Math.max(0, n || 0))}%`;
@@ -38,12 +43,15 @@ export function SprintPanel({ week, setWeek, all, repo, limit, canEdit, onOpen, 
       </div>
 
       <div className="sp-load">
-        {limit ? <>
-          <div><b className={l.over ? "err" : ""}>週の上限の {l.totalPct}%</b>
-            <span className="note"> = 見込み {fmtTokens(l.planned)}({l.plannedPct}%)+ 使用済み {fmtTokens(l.used)}({l.usedPct}%) / 上限 {fmtTokens(limit)}</span></div>
-          <div className="meter" role="img" aria-label={`週の上限の ${l.totalPct}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - (l.usedPct || 0))) }} /></div>
-          {l.over && <div className="err">上限を超える見込みです。タスクを来週に回すか、サイズを小さく分けましょう</div>}
-        </> : <div className="note">見込み {fmtTokens(l.planned)} トークン · 使用済み {fmtTokens(l.used)}。「ボード設定」で週の上限を入れると、何%に当たるかが出ます</div>}
+        {l.totalPct !== undefined
+          ? <div><b className={l.over ? "err" : ""}>週の上限の {l.totalPct}%</b><span className="note"> = 使用済み {l.usedPct}% + このスプリントの見込み {l.plannedPct}%({fmtTokens(l.planned)})</span></div>
+          : fromClaude ? <div><b className={l.over ? "err" : ""}>週の上限の {l.usedPct}% を使用済み</b></div> : null}
+        <div className="note">{usedText}</div>
+        {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
+          <div className="meter" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
+        {!limit && <div className="note">このスプリントの見込み {fmtTokens(l.planned)} トークン。見込みを % にするには、「ボード設定」で週の上限をトークン換算で入れてください(Claude からは % しか取れないため)</div>}
+        {!claude && week === weekOf() && <div className="note">Claude の実際の使用率を出すには、トップの「Claude の使用率を kban に送る」を設定してください</div>}
+        {l.over && <div className="err">上限を超える見込みです。タスクを来週に回すか、サイズを小さく分けましょう</div>}
       </div>
 
       {mine.length === 0
@@ -62,12 +70,12 @@ export function SprintPanel({ week, setWeek, all, repo, limit, canEdit, onOpen, 
 }
 
 /** ボードのトップ用: 今週のスプリントの件数と、週の上限に対する % */
-export function SprintChip({ cards, limit }: { cards: Card[]; limit?: number }) {
-  const l = sprintLoad(weekOf(), cards, limit);
+export function SprintChip({ cards, limit, claude }: { cards: Card[]; limit?: number; claude?: ClaudeLimits | null }) {
+  const l = sprintLoad(weekOf(), cards, limit, new Date(), claude);
   if (!l.cards.length && !limit) return null;
   return (
     <div className={`chip ${l.over ? "wait" : ""}`} title="今週のスプリントの「これから使う見込み+使用済み」。上限はボード設定で入れた値">
-      今週のスプリント {l.cards.length} 件{limit ? ` · 上限の ${l.totalPct}%` : ` · 見込み ${fmtTokens(l.planned)}`}
+      今週のスプリント {l.cards.length} 件{l.totalPct !== undefined ? ` · 上限の ${l.totalPct}%` : ` · 見込み ${fmtTokens(l.planned)}`}
     </div>
   );
 }

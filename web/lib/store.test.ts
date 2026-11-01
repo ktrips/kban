@@ -37,3 +37,17 @@ test("capture token: works once issued, old one is revoked, login code is single
   assert.equal(await takeLoginCode(code), u.uid);
   assert.equal(await takeLoginCode(code), null);
 });
+
+test("limits token: saves Claude's usage for its user, old token is revoked, iPhone token is untouched", async () => {
+  const { ensureUser, issueLimitsToken, saveLimitsByToken, issueCaptureToken, userByCaptureToken, getUser } = await import("./store.ts");
+  const u = await ensureUser("google:lim", "lim@example.com", "Lim");
+  const cap = await issueCaptureToken(u.uid);
+  const t1 = await issueLimitsToken(u.uid);
+  const l = { sevenDay: { pct: 41.2, resetsAt: 1900000000 }, at: 1800000000 };
+  assert.equal(await saveLimitsByToken(t1, l), true);
+  assert.deepEqual((await getUser(u.uid))?.limits, l);
+  const t2 = await issueLimitsToken(u.uid);
+  assert.equal(await saveLimitsByToken(t1, l), false);
+  assert.equal(await saveLimitsByToken(t2, l), true);
+  assert.equal((await userByCaptureToken(cap))?.uid, u.uid);
+});

@@ -14,17 +14,18 @@ import { SprintPanel } from "./Sprint";
 import { touchDrag } from "./touchDrag";
 import { addWeeks, weekLabel, weekOf } from "@/lib/sprint";
 import { estimate, fmtTokens } from "@/lib/usage";
+import type { ClaudeLimits } from "@/lib/limits";
 
 /* ---------------- repo board ---------------- */
 /** Actions(kban-plan.yml)の Claude Code が進め方を作っている間。止まった実行で押せなくならないよう 20 分で切る */
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  budget?: number; weekLimit?: number; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  budget?: number; weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ budget, weekLimit, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
   const [week, setWeek] = useState(() => weekOf());
@@ -168,7 +169,7 @@ export function RepoBoard({ budget, weekLimit, boardId, boardName, canEdit, repo
         <div className="sum"><span className="lbl">どこまで終わったか</span><span className="big">{rate}<small className="note">%</small></span><StagesBar list={cards} /><span className="note">完了 {by.done.length} / 全 {cards.length} 件</span></div>
       </div>
 
-      <SprintPanel week={week} setWeek={setWeek} all={allCards} repo={repo.full} limit={weekLimit} canEdit={canEdit}
+      <SprintPanel week={week} setWeek={setWeek} all={allCards} repo={repo.full} limit={weekLimit} claude={claude} canEdit={canEdit}
         onOpen={(c) => setOpenNo(c.number)} onRemove={(c) => setSprint(c, "")} onDrop={dropSprint} />
 
       <div className="strip-scroll"><div className="strip">

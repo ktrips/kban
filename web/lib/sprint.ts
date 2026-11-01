@@ -1,5 +1,6 @@
 import type { Card } from "./github";
 import { estimate } from "./usage.ts";
+import type { ClaudeLimits } from "./limits.ts";
 
 /**
  * スプリント = 1 週間(月曜〜日曜、見ている人の端末の時刻)。カードは Issue の <!-- kban:sprint=YYYY-MM-DD(月曜) --> でその週に入る。
@@ -51,19 +52,37 @@ export function remaining(c: Card, all: Card[]) {
 export type SprintLoad = {
   week: string; cards: Card[]; done: number;
   /** これから使う見込みの合計 */ planned: number;
-  /** その週にすでに使った分(ボード全体。未来の週は 0) */ used: number;
+  /** その週にすでに使った分(kban から動かした分。ボード全体。未来の週は 0) */ used: number;
   limit?: number; plannedPct?: number; usedPct?: number; totalPct?: number; over: boolean;
+  /** usedPct の出どころ: Claude の契約の週の枠の実際の使用率 / kban の記録 ÷ 週の上限 */
+  usedFrom?: "claude" | "kban";
+  /** Claude の週の枠がリセットされる時刻(epoch 秒) */
+  resetsAt?: number;
 };
 
-/** その週のスプリントの量。limit(週の上限)があれば % も。used はボード全体のカード(all)から数える */
-export function sprintLoad(week: string, all: Card[], limit?: number, now = new Date()): SprintLoad {
+/**
+ * その週のスプリントの量。limit(週の上限のトークン換算)があれば % も。used はボード全体のカード(all)から数える。
+ * 今週で Claude の使用率(claude.sevenDay)が届いていれば、使用済みの % はそれ(Claude Code 以外の使用も含む実際の値)を使う。
+ */
+export function sprintLoad(week: string, all: Card[], limit?: number, now = new Date(), claude?: ClaudeLimits | null): SprintLoad {
   const cards = all.filter((c) => c.sprint === week);
   const planned = cards.reduce((a, c) => a + remaining(c, all), 0);
   const [from, to] = weekRange(week);
   const used = usedBetween(all, from, Math.min(to, now.getTime() / 1000 + 1));
   const p = (n: number) => (limit ? Math.round((n / limit) * 100) : undefined);
+  const live = week === weekOf(now) ? claude?.sevenDay : undefined;
+  const plannedPct = p(planned);
+  if (live) {
+    const totalPct = plannedPct === undefined ? undefined : Math.round(live.pct + plannedPct);
+    return {
+      week, cards, done: cards.filter((c) => c.stage === "done").length, planned, used, limit,
+      plannedPct, usedPct: Math.round(live.pct), totalPct, over: totalPct !== undefined ? totalPct > 100 : live.pct >= 100,
+      usedFrom: "claude", resetsAt: live.resetsAt,
+    };
+  }
   return {
     week, cards, done: cards.filter((c) => c.stage === "done").length, planned, used, limit,
-    plannedPct: p(planned), usedPct: p(used), totalPct: p(planned + used), over: !!limit && planned + used > limit,
+    plannedPct, usedPct: p(used), totalPct: p(planned + used), over: !!limit && planned + used > limit,
+    usedFrom: limit ? "kban" : undefined,
   };
 }

@@ -2,6 +2,7 @@ import { getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import type { Target } from "./stages";
+import type { ClaudeLimits } from "./limits";
 
 /**
  * Persistent data, in Firestore (collection "kban", one document per key below, encoded with encodeURIComponent).
@@ -33,6 +34,9 @@ export type User = {
   github?: { login: string; token: string };
   /** iPhone の共有シート/アプリから投稿するための個人トークン(ハッシュだけ保存)と、前回の投稿先 */
   capture?: { hash: string; last?: { board: string; repo: string } };
+  /** 手元の Claude Code のステータスラインが送る使用率(lib/limits.ts)と、その送信用トークンのハッシュ */
+  limits?: ClaudeLimits;
+  limitsHash?: string;
 };
 
 type KV = {
@@ -179,6 +183,27 @@ export async function setLastCapture(uid: string, board: string, repo: string) {
   const u = await getUser(uid);
   if (u?.capture) { u.capture.last = { board, repo }; await saveUser(u); }
 }
+/* ---------- Claude の使用率を送るトークン(ステータスライン用。iPhone のトークンとは別) ---------- */
+/** 新しいトークンを作る(前のものは使えなくなる)。生のトークンはこのときだけ返す */
+export async function issueLimitsToken(uid: string) {
+  const u = await getUser(uid);
+  if (!u) throw new Error("ユーザーが見つかりません");
+  if (u.limitsHash) await db().del(`limits:${u.limitsHash}`);
+  const raw = `kbl_${randomBytes(24).toString("base64url")}`;
+  u.limitsHash = sha(raw);
+  await saveUser(u);
+  await db().set(`limits:${u.limitsHash}`, uid);
+  return raw;
+}
+export async function saveLimitsByToken(raw: string, limits: ClaudeLimits) {
+  const uid = await db().get<string>(`limits:${sha(raw)}`);
+  const u = uid ? await getUser(uid) : null;
+  if (!u) return false;
+  u.limits = limits;
+  await saveUser(u);
+  return true;
+}
+
 /** One-time code (2 min) the iOS app trades for a web session cookie. */
 export async function makeLoginCode(uid: string) {
   const code = randomBytes(24).toString("base64url");

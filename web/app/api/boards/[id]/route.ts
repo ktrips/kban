@@ -1,6 +1,7 @@
 import { access, bad } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
-import { deleteBoard, saveBoard } from "@/lib/store";
+import { deleteBoard, getUser, saveBoard } from "@/lib/store";
+import { current } from "@/lib/limits";
 import { listCards } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +13,13 @@ export const GET = async (_: Request, { params }: P) => {
   return handle(async () => {
     const a = await access(id, "view");
     const failed: string[] = [];
+    // Claude の契約の使用率はボードの持ち主のもの(Claude Code は持ち主の契約で動く)
+    const limits = current((await getUser(a.board.owner))?.limits);
     const cards = (await Promise.all(a.board.repos.map((r) => listCards(a.token, r).catch(() => { failed.push(r.full); return []; })))).flat();
     const b = a.board;
     return {
       board: { id: b.id, name: b.name, ownerEmail: b.ownerEmail, budgetTokens: b.budgetTokens, weekTokens: b.weekTokens, repos: b.repos, members: a.role === "owner" ? b.members : undefined },
-      role: a.role, canEdit: a.canEdit, cards, failed,
+      role: a.role, canEdit: a.canEdit, cards, failed, limits,
     };
   });
 };

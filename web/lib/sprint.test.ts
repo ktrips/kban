@@ -52,3 +52,17 @@ test("sprintLoad: estimates for not-done cards, actual use this week, and % of t
   assert.deepEqual([next.planned, next.used, next.totalPct, next.over], [1_500_000, 0, 150, true]);
   assert.equal(sprintLoad("2026-11-02", all, undefined, now).totalPct, undefined);
 });
+
+test("sprintLoad uses Claude's real weekly % for this week when it has arrived", () => {
+  const now = new Date(2026, 10, 4, 12);
+  const all = [card({ number: 1, sprint: "2026-11-02", size: "M" })]; // 見込み 50万
+  const claude = { sevenDay: { pct: 41.2, resetsAt: 1_900_000_000 }, at: 1 };
+  const l = sprintLoad("2026-11-02", all, 1_000_000, now, claude);
+  assert.deepEqual([l.usedFrom, l.usedPct, l.plannedPct, l.totalPct, l.over, l.resetsAt], ["claude", 41, 50, 91, false, 1_900_000_000]);
+  // 上限(トークン換算)が未設定でも、使用済みの % は Claude の値で出る
+  const nolimit = sprintLoad("2026-11-02", all, undefined, now, claude);
+  assert.deepEqual([nolimit.usedPct, nolimit.plannedPct, nolimit.totalPct], [41, undefined, undefined]);
+  // 来週の計画には今週の使用率を使わない
+  assert.equal(sprintLoad("2026-11-09", all, 1_000_000, now, claude).usedFrom, "kban");
+  assert.equal(sprintLoad("2026-11-02", all, 1_000_000, now, { sevenDay: { pct: 70, resetsAt: 1 }, at: 1 }).over, true);
+});
