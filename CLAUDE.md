@@ -30,6 +30,9 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 
 - カードの `<!-- kban:sprint=YYYY-MM-DD -->`(その週の月曜、見ている端末の時刻)。工程とは別の軸。計算は `lib/sprint.ts`(テストあり)
 - 量 = 未完了カードの目安(`usage.ts` の `estimate`、実装中は使った分を引く)の合計 + その週にすでに使った分(Issue の usage 履歴)。分母はボードの `weekTokens`(ボード設定で手入力)
+- **Claude の使用率**(5時間枠・7日枠の %): サーバーから Claude に問い合わせる公開 API はない。手元の Claude Code のステータスラインが受け取る `rate_limits` を、
+  `web/public/kban-statusline.sh` が `POST /api/limits`(Bearer `kbl_…`、ユーザーごと。`store.ts issueLimitsToken`)で送る。保存は User.limits、形式は `lib/limits.ts`。
+  ボードではボードの持ち主の値を使い、今週のスプリントの使用済み % はこれを優先する(`sprintLoad` の `claude`)
 - ドラッグ: マウスは HTML の draggable、タッチは `app/ui/touchDrag.ts`(長押しで持ち上げ、指の下の `data-drop` = `sprint:週` / `lane:工程` / `card:番号` に落とす)
 
 ## iPhone

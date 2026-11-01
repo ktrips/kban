@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "./common";
+import { LimitsSetup } from "./Limits";
+import type { ClaudeLimits } from "@/lib/limits";
 
-export type Me = { user: { email: string; name: string }; github: { login: string } | null };
+export type Me = { user: { email: string; name: string }; github: { login: string } | null; limits?: ClaudeLimits | null; limitsLinked?: boolean };
 type BoardItem = { id: string; name: string; ownerEmail: string; repos: string[]; members: number; role?: "editor" | "viewer" };
 
 /** Start screen: who I am, GitHub link, my boards and boards shared with me. */
@@ -64,6 +66,8 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
             <button className="btn small" onClick={() => navigator.clipboard.writeText(token).then(() => toast("コピーしました"))}>コピー</button></>}
         </div>
       </section>
+
+      <LimitsSetup me={me} toast={toast} />
 
       <h1>自分のボード</h1>
       <div className="home-grid">

@@ -6,10 +6,12 @@ import type { RepoSettings, Role } from "@/lib/store";
 import { MonthMeter, WindowMeters } from "./Usage";
 import { ClaudeLink } from "./ClaudeLink";
 import { SprintChip } from "./Sprint";
+import { LimitsChips } from "./Limits";
+import type { ClaudeLimits } from "@/lib/limits";
 
 export type BoardData = {
   board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; weekTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
-  role: "owner" | Role; canEdit: boolean; cards: Card[]; failed: string[];
+  role: "owner" | Role; canEdit: boolean; cards: Card[]; failed: string[]; limits?: ClaudeLimits | null;
 };
 
 /** One board: its repositories with progress, everything in flight across them, and sharing. */
@@ -29,7 +31,8 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         </div>
         <WindowMeters cards={cards} />
         <MonthMeter cards={cards} budget={board.budgetTokens} />
-        <SprintChip cards={cards} limit={board.weekTokens} />
+        <LimitsChips limits={data.limits} />
+        <SprintChip cards={cards} limit={board.weekTokens} claude={data.limits} />
         {role !== "owner" && <span className="chip">{board.ownerEmail} のボード · {canEdit ? "編集できる" : "見るだけ"}</span>}
         <div className="spacer" />
         {role === "owner" && <button className="btn small" onClick={() => setSheet("share")}>共有{board.members && Object.keys(board.members).length ? ` (${Object.keys(board.members).length})` : ""}</button>}
@@ -196,8 +199,8 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
         <div className="field"><label htmlFor="bsName">ボード名</label><input id="bsName" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="field"><label htmlFor="bsBudget">月のトークン予算(万トークン・任意)</label><input id="bsBudget" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} placeholder="例: 500(= 500万)" />
           <span className="note">Claude Code に渡す前の「何%使うか」の分母です。Claude の契約の残り枠は取得できないので、自分で決めた枠になります。</span></div>
-        <div className="field"><label htmlFor="bsWeek">週のトークン上限(万トークン・任意)</label><input id="bsWeek" inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/\D/g, ""))} placeholder="例: 300(= 300万)" />
-          <span className="note">スプリント(週)のタスク量が「上限の何%か」の分母です。Claude の契約の週の利用上限は API で取得できないため、使用状況の画面を見て自分で入れてください。</span></div>
+        <div className="field"><label htmlFor="bsWeek">週の上限のトークン換算(万トークン・任意)</label><input id="bsWeek" inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/\D/g, ""))} placeholder="例: 300(= 300万)" />
+          <span className="note">スプリントの見込み(トークン)を「週の上限の何%か」に直すための値です。使用済みの % は Claude から取得できますが(トップの「Claude の使用率を kban に送る」)、上限のトークン数は取得できないため、目安を入れてください。</span></div>
         <div className="btns"><button className="btn primary" onClick={save} disabled={!name.trim()}>保存</button></div>
       </div>
       <div className="section">
