@@ -18,6 +18,7 @@ mkdir -p "$TARGET/.github/kban" "$TARGET/.github/workflows"
 cp "$T/.github/kban/resolve.js" "$TARGET/.github/kban/"
 printf '{\n  "target": "%s",\n  "scheme": "%s",\n  "simulator": "iPhone 16"\n}\n' "$KIND" "$SCHEME" > "$TARGET/.github/kban/config.json"
 cp "$T/.github/workflows/kban-flow.yml" "$TARGET/.github/workflows/"
+cp "$T/.github/workflows/kban-plan.yml" "$TARGET/.github/workflows/"
 
 # Claude Code の実行環境: iOS のビルドとテストには macOS が必要
 if [ "$KIND" = web ]; then RUNNER=ubuntu-latest; TOOLS='Bash(npm:*),Bash(npx:*),Bash(node:*)'

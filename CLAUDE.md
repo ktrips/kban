@@ -21,7 +21,10 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
   GitHub 操作は常にボード持ち主のトークンで行う(共有相手は GitHub 権限不要)
 - 自動で工程を進めるのは各アプリ側のワークフロー(`templates/.github/workflows/kban-*.yml` + `templates/.github/kban/resolve.js`)。
   `scripts/install.sh` でアプリのリポジトリにコピーする。工程は前にしか進めない(resolve.js)
-- AI(仕様化・優先順位・差し戻し)はサーバーから Claude API(`web/lib/ai.ts`、`KBAN_MODEL`)
+- **「AIで進め方を作る」はアプリのリポジトリの Actions(`templates/.github/workflows/kban-plan.yml`)で、Claude の契約(`CLAUDE_CODE_OAUTH_TOKEN`)を使う Claude Code が行う**。
+  サーバーは `requestPlan`(`lib/github.ts`)で workflow_dispatch し、Issue に `<!-- kban:planning=秒 -->` を付けるだけ。結果は `resolve.js` の `applyPlan` が Issue に書く(本文の形式は `body.ts` と同じ。`lib/plan.test.ts` が確認)。
+  kban-plan.yml がないリポジトリだけ、サーバーに `ANTHROPIC_API_KEY` があれば従来どおり Claude API(`makePlan`)
+- 優先順位・差し戻しの文面・フォローアップ抽出はまだサーバーから Claude API(`web/lib/ai.ts`、`KBAN_MODEL`、要 `ANTHROPIC_API_KEY`)
 
 ## iPhone
 

@@ -26,6 +26,8 @@ export type Card = CardBody & {
   usage?: string;
   /** "local": 手元の Claude(VS Code / アプリ)で進める。Actions は動かさない */
   runner?: "local";
+  /** 「AIで進め方を作る」を Actions(kban-plan.yml)に頼んだ時刻(epoch 秒)。結果を書き込むと消える */
+  planning?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -127,6 +129,7 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
         tokens: m.tokens,
         cost: m.cost,
         runner: m.runner,
+        planning: m.planning,
         usage: m.usage,
         url: i.html_url,
         createdAt: i.created_at,
@@ -144,7 +147,7 @@ export async function createCard(token: string, full: string, title: string, tar
   return data.number;
 }
 
-export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner">> & {
+export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner" | "planning">> & {
   title?: string; stage?: StageId; size?: Size; target?: Target;
 };
 
@@ -154,7 +157,7 @@ export async function updateCard(token: string, full: string, number: number, pa
   const update: Parameters<Octokit["issues"]["update"]>[0] = { owner, repo, issue_number: number };
   if (patch.title) update.title = patch.title.slice(0, 120);
 
-  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner"] as const;
+  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner", "planning"] as const;
   if (bodyKeys.some((k) => patch[k] !== undefined)) {
     const cur = parseBody(issue.body);
     const marks = parseMarkers(issue.body);
@@ -164,7 +167,7 @@ export async function updateCard(token: string, full: string, number: number, pa
         idea: pick(patch.idea, cur.idea), spec: pick(patch.spec, cur.spec), steps: pick(patch.steps, cur.steps),
         criteria: pick(patch.criteria, cur.criteria), dependsOn: pick(patch.dependsOn, cur.dependsOn), prompt: pick(patch.prompt, cur.prompt),
       },
-      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner) },
+      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner), planning: pick(patch.planning, marks.planning) },
     );
   }
 
@@ -224,6 +227,7 @@ export async function requestFix(token: string, full: string, number: number, in
 export const CLAUDE_SECRETS = ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"] as const;
 export type ClaudeStatus = {
   workflows: boolean; // kban-claude.yml がデフォルトブランチにある
+  plan: boolean; // kban-plan.yml(「AIで進め方を作る」を Claude Code で行う)がある
   secret: string | null | "unknown"; // 登録済みの認証の名前。権限がなく調べられないとき "unknown"
   pr?: string; // 連携を入れる PR が開いている
 };
@@ -233,13 +237,15 @@ export async function claudeStatus(token: string, full: string): Promise<ClaudeS
   const o = gh(token);
   const exists = (path: string, ref?: string) =>
     o.repos.getContent({ owner, repo, path, ref }).then(() => true, (e) => { if ((e as { status?: number }).status === 404) return false; throw e; });
-  const [workflows, secrets, prs] = await Promise.all([
+  const [workflows, plan, secrets, prs] = await Promise.all([
     exists(".github/workflows/kban-claude.yml"),
+    exists(".github/workflows/kban-plan.yml"),
     o.actions.listRepoSecrets({ owner, repo, per_page: 100 }).then((r) => r.data.secrets.map((s) => s.name)).catch(() => null),
     o.pulls.list({ owner, repo, state: "open", head: `${owner}:${SETUP_BRANCH}`, per_page: 1 }).then((r) => r.data).catch(() => []),
   ]);
   return {
     workflows,
+    plan,
     secret: secrets ? (CLAUDE_SECRETS.find((n) => secrets.includes(n)) ?? null) : "unknown",
     pr: prs[0]?.html_url,
   };
@@ -283,6 +289,27 @@ export async function installClaude(token: string, full: string, kind: Target, s
       "このあと、Claude GitHub App のインストールと、Secrets(`CLAUDE_CODE_OAUTH_TOKEN` か `ANTHROPIC_API_KEY`)の登録が必要です。kban の「リポジトリの設定 → Claude Code 連携」から行えます。",
   });
   return { pr: pr.html_url, files: Object.keys(files) };
+}
+
+export const PLAN_WORKFLOW = "kban-plan.yml";
+
+/**
+ * 「AIで進め方を作る」をアプリのリポジトリの Actions(kban-plan.yml)で行う。そこで動く Claude Code は
+ * リポジトリに登録した認証(Claude の契約 CLAUDE_CODE_OAUTH_TOKEN)を使う。結果はワークフローが Issue に書き込む。
+ * ワークフローがなければ false(呼び出し側で別の手段にする)。
+ */
+export async function requestPlan(token: string, full: string, number: number): Promise<boolean> {
+  const { owner, repo } = split(full);
+  const o = gh(token);
+  const { data: r } = await o.repos.get({ owner, repo });
+  try {
+    await o.actions.createWorkflowDispatch({ owner, repo, workflow_id: PLAN_WORKFLOW, ref: r.default_branch, inputs: { issue: String(number) } });
+  } catch (e) {
+    if ((e as { status?: number }).status === 404) return false;
+    throw e;
+  }
+  await updateCard(token, full, number, { planning: Math.floor(Date.now() / 1000) });
+  return true;
 }
 
 /** Store a credential as an Actions secret (encrypted with the repo's public key; kban does not keep the value). */

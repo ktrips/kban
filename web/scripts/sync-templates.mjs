@@ -14,6 +14,7 @@ const FILES = [
   ".github/workflows/kban-ci.web.yml",
   ".github/workflows/kban-claude.yml",
   ".github/workflows/kban-flow.yml",
+  ".github/workflows/kban-plan.yml",
   ".github/workflows/kban-testflight.yml",
   "CLAUDE.kban.md",
   "fastlane/Fastfile",

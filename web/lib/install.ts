@@ -16,6 +16,7 @@ export async function planInstall(kind: Target, scheme: string, existing: (path:
   files[".github/kban/resolve.js"] = T[".github/kban/resolve.js"];
   files[".github/kban/config.json"] = `{\n  "target": "${kind}",\n  "scheme": "${kind === "web" ? "" : scheme}",\n  "simulator": "iPhone 16"\n}\n`;
   files[".github/workflows/kban-flow.yml"] = T[".github/workflows/kban-flow.yml"];
+  files[".github/workflows/kban-plan.yml"] = T[".github/workflows/kban-plan.yml"];
   files[".github/workflows/kban-claude.yml"] = T[".github/workflows/kban-claude.yml"].replaceAll("__RUNNER__", () => runner).replaceAll("__TOOLS__", () => tools);
   if (kind === "web") files[".github/workflows/kban-ci.yml"] = T[".github/workflows/kban-ci.web.yml"];
   else if (kind === "ios") files[".github/workflows/kban-ci.yml"] = T[".github/workflows/kban-ci.ios.yml"];

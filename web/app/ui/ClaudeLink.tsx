@@ -33,10 +33,11 @@ export function ClaudeLink({ base, isOwner, target, toast }: { base: string; isO
   return (
     <div className="section">
       <h3>Claude Code 連携</h3>
-      <p className="note">「AIに渡す」で、このリポジトリの GitHub Actions 上であなたの Claude Code が動きます。使われるのは下で登録するあなたの認証です。</p>
+      <p className="note">「AIで進め方を作る」と「AIに渡す」で、このリポジトリの GitHub Actions 上であなたの Claude Code が動きます。使われるのは下で登録するあなたの認証です。</p>
       {!s ? <p className="note">状態を確認中…</p> : (
         <ul className="checks">
           {row(s.workflows, "ワークフロー(.github/workflows/kban-claude.yml)", s.pr && !s.workflows ? <a href={s.pr} target="_blank" rel="noreferrer">PR をマージしてください</a> : null)}
+          {row(s.plan, "「AIで進め方を作る」用(.github/workflows/kban-plan.yml)", s.workflows && !s.plan ? <span className="note">下の「ワークフローを更新する PR を作る」で追加</span> : null)}
           {row(s.secret === "unknown" ? null : s.secret !== null, "認証(Secrets)", s.secret && s.secret !== "unknown" ? <span className="note">{s.secret}</span> : null)}
           <li><span className="chip">手動</span> Claude GitHub App を入れる <a href="https://github.com/apps/claude" target="_blank" rel="noreferrer">インストール</a><span className="note"> (リポジトリを選ぶ)</span></li>
         </ul>

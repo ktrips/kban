@@ -1,12 +1,12 @@
 import { access, bad, repoOn } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
-import { listCards, updateCard, requestFix } from "@/lib/github";
+import { listCards, updateCard, requestFix, requestPlan } from "@/lib/github";
 import { makePlan, prioritize, makeFix } from "@/lib/ai";
 import { ACTIVE } from "@/lib/stages";
 
 type P = Ctx<{ id: string; owner: string; repo: string }>;
 
-/** body: { action: "plan" | "prioritize" | "fix", number?, feedback? } */
+/** body: { action: "plan" | "prioritize" | "fix", number?, feedback? }。plan は Actions に頼めたら { queued: true } */
 export const POST = async (req: Request, { params }: P) => {
   const { id, owner, repo } = await params;
   return handle(async () => {
@@ -23,6 +23,11 @@ export const POST = async (req: Request, { params }: P) => {
     const card = cards.find((c) => c.number === Number(number));
     if (!card) throw bad("カードが見つかりません");
     if (action === "plan") {
+      // まずアプリのリポジトリの Actions(kban-plan.yml)で、登録済みの Claude の契約を使って作る。結果はワークフローが Issue に書く
+      if (await requestPlan(a.token, r.full, card.number)) return { queued: true };
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw bad("このリポジトリに kban-plan.yml がありません。「リポジトリの設定 → Claude Code 連携」で「ワークフローを更新する PR を作る」を押し、PR をマージしてください");
+      }
       const p = await makePlan(r, card, cards.filter((c) => c.number !== card.number && c.stage !== "done"));
       const rank = card.stage === "backlog" ? Math.max(0, ...cards.filter((c) => c.stage === "ready").map((c) => (c.rank < 100000 ? c.rank : 0))) + 1 : undefined;
       await updateCard(a.token, r.full, card.number, {

@@ -1,0 +1,60 @@
+# kban: 「AIで進め方を作る」で起動する。Claude Code がリポジトリを読んで、カードの仕様・進め方・受入条件を Issue に書き込む。
+# 認証は kban-claude.yml と同じ Secrets(Claude の契約の CLAUDE_CODE_OAUTH_TOKEN を優先、なければ ANTHROPIC_API_KEY)。
+name: kban-plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: kban のカード(Issue)の番号
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: kban-plan-${{ inputs.issue }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: kban → 指示を作る
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ inputs.issue }}
+        with:
+          script: |
+            const k = require(`${process.env.GITHUB_WORKSPACE}/.github/kban/resolve.js`);
+            const prompt = await k.planPrompt({ github, context, core }, Number(process.env.ISSUE));
+            require("fs").writeFileSync(`${process.env.RUNNER_TEMP}/kban-plan-prompt.txt`, prompt);
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 読むだけ(Read / Glob / Grep)。コードは変えない
+      - name: Claude Code で進め方を作る
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+        run: |
+          npx -y @anthropic-ai/claude-code@latest -p --output-format json --max-turns 30 --allowedTools "Read,Glob,Grep" \
+            < "$RUNNER_TEMP/kban-plan-prompt.txt" > "$RUNNER_TEMP/kban-plan.json"
+
+      # 失敗しても「作成中」を外し、理由を Issue に残す
+      - name: kban → Issue に書き込む
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          ISSUE: ${{ inputs.issue }}
+          OUT: ${{ runner.temp }}/kban-plan.json
+        with:
+          script: |
+            const k = require(`${process.env.GITHUB_WORKSPACE}/.github/kban/resolve.js`);
+            await k.applyPlan({ github, context, core }, Number(process.env.ISSUE), process.env.OUT);

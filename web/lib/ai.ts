@@ -3,7 +3,7 @@ import type { Card } from "./github";
 import type { RepoSettings as Repo } from "./store";
 import type { Size } from "./stages";
 
-const MODEL = process.env.KBAN_MODEL || "claude-sonnet-5-5";
+const MODEL = process.env.KBAN_MODEL || "claude-sonnet-5";
 let client: Anthropic | null = null;
 const ai = () => (client ??= new Anthropic()); // reads ANTHROPIC_API_KEY
 
