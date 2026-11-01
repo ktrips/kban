@@ -15,6 +15,7 @@ test("planInstall mirrors install.sh", async () => {
   assert.ok(web[".github/workflows/kban-ci.yml"] && !web[".github/workflows/kban-testflight.yml"]);
   assert.match(web[".github/workflows/kban-claude.yml"], /runs-on: ubuntu-latest/);
   assert.ok(!web[".github/workflows/kban-claude.yml"].includes("__RUNNER__"));
+  assert.match(web[".github/workflows/kban-plan.yml"], /workflow_dispatch/); // 「AIで進め方を作る」を Claude Code(契約)で
 
   const both = await planInstall("both", "Komb", async (p) => (p === "CLAUDE.md" ? "# mine\n" : p === "fastlane/Fastfile" ? "lane" : null));
   assert.ok(both[".github/workflows/kban-ci-web.yml"] && both[".github/workflows/kban-testflight.yml"]);

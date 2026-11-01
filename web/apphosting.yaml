@@ -18,7 +18,7 @@ env:
     value: "true"
     availability: [RUNTIME]
   - variable: KBAN_MODEL
-    value: claude-sonnet-5-5
+    value: claude-sonnet-5
     availability: [RUNTIME]
   # 任意: ログインできる Google アカウントを絞る(カンマ区切り)。空なら誰でもログインできる
   # - variable: KBAN_ALLOWED_EMAILS

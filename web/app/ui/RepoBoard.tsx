@@ -12,6 +12,9 @@ import { useClaudeStatus, linked } from "./ClaudeLink";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 
 /* ---------------- repo board ---------------- */
+/** Actions(kban-plan.yml)の Claude Code が進め方を作っている間。止まった実行で押せなくならないよう 20 分で切る */
+const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
+const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
   budget?: number; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
@@ -34,7 +37,7 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
 
   async function run(key: string, label: string, fn: () => Promise<unknown>, done: string) {
     setBusy((b) => ({ ...b, [key]: label }));
-    try { await fn(); await reload(); toast(done); }
+    try { await fn(); await reload(); if (done) toast(done); }
     catch (e) { toast((e as Error).message); }
     finally { setBusy((b) => { const n = { ...b }; delete n[key]; return n; }); }
   }
@@ -49,7 +52,10 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
     list.splice(Math.max(0, Math.min(to, list.length)), 0, c);
     return run("order", "order", () => api(`${base}/order`, "POST", { numbers: list.map((x) => x.number) }), "順番を変えました");
   };
-  const plan = (c: Card) => run(String(c.number), "plan", () => api(`${base}/ai`, "POST", { action: "plan", number: c.number }), "仕様と進め方を作りました");
+  const plan = (c: Card) => run(String(c.number), "plan", async () => {
+    const r = await api<{ queued?: boolean }>(`${base}/ai`, "POST", { action: "plan", number: c.number });
+    toast(r.queued ? "Claude Code(あなたの契約)が進め方を作っています。1〜2分でカードに反映されます" : "仕様と進め方を作りました");
+  }, "");
   const fix = (c: Card, feedback: string) => run(String(c.number), "fix", () => api(`${base}/ai`, "POST", { action: "fix", number: c.number, feedback }), "Claude Code に修正を依頼しました");
   async function prioritize() {
     setProposal("loading");
@@ -135,7 +141,7 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
             <span className="note">{next.reason || (next.stage === "ready" ? "仕様と進め方ができています" : "まず仕様と進め方を作りましょう")}</span>
             <div className="btns">{!canEdit ? null : next.stage === "ready"
               ? <button className="btn small primary" onClick={() => setOpenNo(next.number)}>AIに渡す</button>
-              : <button className="btn small primary" disabled={!!busy[next.number]} onClick={() => plan(next)}>{busy[next.number] === "plan" ? "作成中…" : "AIで進め方を作る"}</button>}</div>
+              : <button className="btn small primary" disabled={!!busy[next.number] || planning(next)} onClick={() => plan(next)}>{planLabel(next, busy[next.number])}</button>}</div>
           </> : <span className="note">バックログにアイデアを書き込むと、ここに次の一手が出ます</span>}
         </div>
         <div className="sum"><span className="lbl">並行して進行中</span><span className="big">{act.length}<small className="note"> / WIP 3</small></span>
@@ -224,7 +230,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
       </div>
       {c.reason && ord && <div className="why">{c.reason}</div>}
       {!ord && c.stage !== "done" && <div className="prog"><i style={{ width: `${pct}%`, background: "var(--c)" }} /></div>}
-      {edit && c.stage === "backlog" && <div className="next" onClick={stop}><button className="btn small" disabled={!!busy} onClick={onPlan}>{busy === "plan" ? "作成中…" : "AIで進め方を作る"}</button></div>}
+      {edit && c.stage === "backlog" && <div className="next" onClick={stop}><button className="btn small" disabled={!!busy || planning(c)} onClick={onPlan}>{planLabel(c, busy)}</button></div>}
       {edit && c.stage === "ready" && <div className="next"><button className="btn small primary">AIに渡す</button></div>}
       {busy && busy !== "plan" && <div className="note">更新中…</div>}
     </article>
@@ -270,7 +276,7 @@ function Sheet({ local, complete, imgBase, base, budget, boardCards, canEdit, c,
     case "backlog": action = <>
       <h3>1. 仕様と進め方を決める</h3>
       <p className="note">AI がアイデアを仕様・進め方・受入条件・Claude Code への指示にまとめ、Issue に書き込んで「次にやる」に移します。</p>
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => plan(c)}>{busy === "plan" ? "作成中…" : "AIで進め方を作る"}</button><button className="btn" disabled={!!busy} onClick={() => move(c, "ready")}>手で書いて次にやるへ</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy || planning(c)} onClick={() => plan(c)}>{planLabel(c, busy)}</button><button className="btn" disabled={!!busy} onClick={() => move(c, "ready")}>手で書いて次にやるへ</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
     </>; break;
     case "ready": action = <>
       <h3>2. Claude Code に渡す</h3>
@@ -347,7 +353,7 @@ function Sheet({ local, complete, imgBase, base, budget, boardCards, canEdit, c,
         <div className="field"><label htmlFor="prompt">Claude Code への指示</label><textarea id="prompt" className="code" value={f.prompt} onChange={set("prompt")} /></div>
         <div className="btns">
           <button className="btn primary" disabled={!dirty || !!busy} onClick={save}>Issue に保存</button>
-          {c.stage !== "backlog" && c.stage !== "done" && <button className="btn" disabled={!!busy} onClick={() => plan(c)}>AIで作り直す</button>}
+          {c.stage !== "backlog" && c.stage !== "done" && <button className="btn" disabled={!!busy || planning(c)} onClick={() => plan(c)}>{planLabel(c, busy, "AIで作り直す")}</button>}
           <a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a>
         </div>
         </fieldset>
