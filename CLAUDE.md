@@ -31,6 +31,12 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - スクリーンショットは `lib/attach.ts` が `kban-attachments` ブランチに commit し、Issue の背景に Markdown 画像で入れる。表示は `/api/boards/.../img/[name]`
 - **未検証**: Swift のコードはこの環境(Linux)でビルドしていない。`.github/workflows/ios-build.yml` と実機で確認すること
 
+## 手元の Claude で進める
+
+- 「AI実装中」へのドロップ / 「手元のClaudeで進める」→ `POST .../cards/[n]/handoff`: 工程を building にし、Issue に `<!-- kban:runner=local -->`(`claude` ラベルは付けない)。指示は `lib/prompt.ts`、カード専用の使い捨てトークン `kbc_…`(`store.ts`、14日)を末尾に入れる
+- Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が完了にして、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
+- クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
+
 ## Claude Code 連携(リポジトリ側)
 
 - `templates/` が元。Firebase の build は `web/` だけでも動くよう、`web/scripts/sync-templates.mjs`(`prebuild`)が `web/lib/templates.generated.ts` に埋め込む。**templates を変えたら `npm run sync-templates` してコミット**(テストが古さを検出)
