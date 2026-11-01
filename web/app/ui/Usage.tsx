@@ -38,10 +38,12 @@ export function MonthMeter({ cards, budget }: { cards: Card[]; budget?: number }
 export function WindowMeters({ cards }: { cards: Card[] }) {
   const h5 = windowUsed(cards, 5);
   const d7 = windowUsed(cards, 24 * 7);
+  const tip = "kban から動かした Claude Code のトークン合計です。ターミナルや claude.ai の使用は含まず、契約の枠(%)そのものではありません";
   return (
     <>
-      <div className="chip" title="直近5時間に kban から動かした Claude Code のトークン合計。Claude の契約の枠(%)そのものではありません">5時間 {fmtTokens(h5)}</div>
-      <div className="chip" title="直近7日間に kban から動かした Claude Code のトークン合計。Claude の契約の枠(%)そのものではありません">1週間 {fmtTokens(d7)}</div>
+      <div className="chip" title={`直近5時間。${tip}`}>5時間 {fmtTokens(h5)} <span className="note">(kban 経由)</span></div>
+      <div className="chip" title={`直近7日間。${tip}`}>1週間 {fmtTokens(d7)} <span className="note">(kban 経由)</span></div>
+      <a className="chip" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">契約の使用状況 ↗</a>
     </>
   );
 }
