@@ -9,6 +9,7 @@ import { QuickAdd, splitIdea } from "./QuickAdd";
 import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
+import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 
 /* ---------------- repo board ---------------- */
 type BoardProps = {
@@ -78,11 +79,31 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
     setStage("backlog");
   }
 
+  const [handoff, setHandoff] = useState<{ title: string; r: HandoffResult; copied: boolean } | null>(null);
+  /** 手元の Claude で進める: 進行中にして、指示をコピーする(ドロップ/タップの操作の中で呼ぶ) */
+  async function local(c: Card) {
+    if (blockersOf(c, cards).length) toast(`先に「${blockersOf(c, cards)[0].title}」が終わっている必要があります`);
+    setBusy((b) => ({ ...b, [c.number]: "local" }));
+    const { result, copied } = startHandoff(`${base}/cards/${c.number}/handoff`);
+    try {
+      const r = await result;
+      setHandoff({ title: c.title, r, copied: await copied });
+      setOpenNo(null);
+      await reload();
+    } catch (e) { toast((e as Error).message); }
+    finally { setBusy((b) => { const n = { ...b }; delete n[c.number]; return n; }); }
+  }
+  const complete = (c: Card, summary: string, followups?: string[]) =>
+    run(String(c.number), "complete", async () => {
+      const r = await api<{ followups: number[] }>(`${base}/cards/${c.number}/complete`, "POST", { summary, followups });
+      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "完了にしました");
+
   const [dragNo, setDragNo] = useState<number | null>(null);
   const drop = (s: StageId, overNo?: number) => {
     const c = cards.find((x) => x.number === dragNo); setDragNo(null);
     if (!c) return;
-    if (c.stage !== s) { move(c, s); return; }
+    if (c.stage !== s) { if (s === "building" && (c.stage === "backlog" || c.stage === "ready")) local(c); else move(c, s); return; }
     if (ordered(s) && overNo !== undefined && overNo !== c.number) reorder(c, by[s].filter((x) => x.number !== c.number).findIndex((x) => x.number === overNo));
   };
 
@@ -165,7 +186,8 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
         ))}
       </div></div>
 
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} />}
+      {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
@@ -209,8 +231,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ imgBase, base, budget, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  imgBase: string; base: string; budget?: number; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ local, complete, imgBase, base, budget, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -248,7 +270,7 @@ function Sheet({ imgBase, base, budget, boardCards, canEdit, c, all, busy, onClo
     case "backlog": action = <>
       <h3>1. 仕様と進め方を決める</h3>
       <p className="note">AI がアイデアを仕様・進め方・受入条件・Claude Code への指示にまとめ、Issue に書き込んで「次にやる」に移します。</p>
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => plan(c)}>{busy === "plan" ? "作成中…" : "AIで進め方を作る"}</button><button className="btn" disabled={!!busy} onClick={() => move(c, "ready")}>手で書いて次にやるへ</button></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => plan(c)}>{busy === "plan" ? "作成中…" : "AIで進め方を作る"}</button><button className="btn" disabled={!!busy} onClick={() => move(c, "ready")}>手で書いて次にやるへ</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
     </>; break;
     case "ready": action = <>
       <h3>2. Claude Code に渡す</h3>
@@ -257,11 +279,18 @@ function Sheet({ imgBase, base, budget, boardCards, canEdit, c, all, busy, onClo
       {cs && !linked(cs) && <p className="err">このリポジトリは Claude Code と未連携です({!cs.workflows ? "ワークフロー" : "認証"}が未設定)。ボードのリポジトリ設定の「Claude Code 連携」で設定してください。</p>}
       <EstimateBox card={c} all={boardCards} budget={budget} />
       <div className="field"><label htmlFor="extra">追加の指示(任意)</label><textarea id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="例: まず既存のテストを読んでから。UI は変えない" /></div>
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
     </>; break;
     case "building": action = <>
-      <h3>3. AI実装中</h3><p className="note">PR が開くと自動で「テスト」に進みます。</p>
-      <ProgressPanel base={base} number={c.number} active />
+      <h3>3. {c.runner === "local" ? "進行中(手元の Claude)" : "AI実装中"}</h3>
+      {c.runner === "local"
+        ? <>
+            <p className="note">Claude での作業が終わると、Claude が kban に報告してこのカードが完了になります。報告されなかったときは、Claude の最後の報告を貼って完了にできます。</p>
+            <div className="btns"><button className="btn" disabled={!!busy} onClick={() => local(c)}>指示をもう一度コピー</button></div>
+            <CompleteForm c={c} busy={busy} complete={complete} />
+          </>
+        : <><p className="note">PR が開くと自動で「テスト」に進みます。</p>
+      <ProgressPanel base={base} number={c.number} active /></>}
       {c.tokens ? <p className="note">ここまでの使用量: {usedBy(c)}</p> : null}
       <div className="btns"><a className="btn" href={c.url} target="_blank" rel="noreferrer">Issue を開く</a>{c.pr && <a className="btn" href={c.pr} target="_blank" rel="noreferrer">PR を開く</a>}</div>
     </>; break;
@@ -323,6 +352,22 @@ function Sheet({ imgBase, base, budget, boardCards, canEdit, c, all, busy, onClo
         </div>
         </fieldset>
       </aside>
+    </div>
+  );
+}
+
+/** Claude の最後の報告を貼って完了にする。フォローアップは AI が取り出して新しいアイデアにする(下の欄で直接書いてもよい) */
+function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete: (c: Card, summary: string, followups?: string[]) => Promise<void> }) {
+  const [summary, setSummary] = useState("");
+  const [follow, setFollow] = useState("");
+  const lines = follow.split("\n").map((x) => x.trim()).filter(Boolean);
+  return (
+    <div className="field">
+      <label htmlFor="sum">Claude の報告(貼り付け)</label>
+      <textarea id="sum" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="変更の要約、PR の URL、残った課題など" />
+      <label htmlFor="fol">フォローアップ(1行1件。空なら報告から AI が取り出す)</label>
+      <textarea id="fol" value={follow} onChange={(e) => setFollow(e.target.value)} placeholder="例: 横向きのときのテストを足す" />
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "完了にしています…" : "完了にする(フォローアップは新しいアイデアに)"}</button></div>
     </div>
   );
 }

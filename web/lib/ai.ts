@@ -79,3 +79,15 @@ export async function makeFix(card: Card, feedback: string) {
     800,
   );
 }
+
+/** Claude の作業報告から、今回やらずに残したこと・次にやるとよいことを、新しいアイデアとして取り出す。 */
+export async function extractFollowups(title: string, summary: string): Promise<string[]> {
+  const v = json(await ask(`開発タスク「${title}」を Claude が終えたときの報告です。ここから、今回は実装しなかった/残った課題・気づき・次にやるとよいことだけを、バックログの新しいアイデアとして取り出してください。完了した内容や、すでに対応済みのものは含めない。
+
+報告:
+${summary.slice(0, 6000)}
+
+JSONだけを返す(コードフェンス不要)。なければ空配列:
+{"followups":["1件ずつ単独で読めるアイデア(80字以内)"]}`, 1200));
+  return (Array.isArray(v.followups) ? v.followups : []).map((x: unknown) => String(x).trim()).filter(Boolean).slice(0, 10);
+}

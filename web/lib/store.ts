@@ -142,6 +142,20 @@ export async function setMember(b: Board, email: string, role: Role | null) {
   await saveBoard(b);
 }
 
+/* ---------- per-card completion token (手元の Claude が作業後に kban へ報告する) ---------- */
+type DoneGrant = { uid: string; board: string; repo: string; number: number; exp: number };
+const doneKey = (raw: string) => `done:${createHash("sha256").update(raw).digest("hex")}`;
+export async function makeDoneToken(g: Omit<DoneGrant, "exp">) {
+  const raw = `kbc_${randomBytes(24).toString("base64url")}`;
+  await db().set(doneKey(raw), { ...g, exp: Date.now() + 14 * 86_400_000 });
+  return raw;
+}
+export async function readDoneToken(raw: string) {
+  const g = await db().get<DoneGrant>(doneKey(raw));
+  return g && g.exp > Date.now() ? g : null;
+}
+export async function dropDoneToken(raw: string) { await db().del(doneKey(raw)); }
+
 /* ---------- iPhone capture token / native login code ---------- */
 const sha = (t: string) => createHash("sha256").update(t).digest("hex");
 /** Issue a new capture token (the previous one stops working). The raw token is returned once. */

@@ -14,7 +14,7 @@ export default auth((req) => {
     to.port = "";
     return NextResponse.redirect(to, 308);
   }
-  if (req.auth?.user || p === "/login" || p.startsWith("/api/auth") || p === "/api/native/exchange" || (p === "/api/capture" && req.headers.get("authorization")?.startsWith("Bearer kbt_"))) return NextResponse.next();
+  if (req.auth?.user || p === "/login" || p.startsWith("/api/auth") || p === "/api/native/exchange" || (p === "/api/capture" && req.headers.get("authorization")?.startsWith("Bearer kbt_")) || (p === "/api/done" && req.headers.get("authorization")?.startsWith("Bearer kbc_"))) return NextResponse.next();
   if (p === "/api/native/start") return NextResponse.redirect(new URL("/login?next=/api/native/start", req.nextUrl));
   if (p.startsWith("/api/")) return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
   return NextResponse.redirect(new URL("/login", req.nextUrl));

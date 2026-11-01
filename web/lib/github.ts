@@ -24,6 +24,8 @@ export type Card = CardBody & {
   cost?: number;
   /** 使用量の履歴 "秒:トークン,秒:トークン"(直近5時間・7日の集計用) */
   usage?: string;
+  /** "local": 手元の Claude(VS Code / アプリ)で進める。Actions は動かさない */
+  runner?: "local";
   createdAt: string;
   updatedAt: string;
 };
@@ -124,6 +126,7 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
         preview: m.preview,
         tokens: m.tokens,
         cost: m.cost,
+        runner: m.runner,
         usage: m.usage,
         url: i.html_url,
         createdAt: i.created_at,
@@ -141,7 +144,7 @@ export async function createCard(token: string, full: string, title: string, tar
   return data.number;
 }
 
-export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel">> & {
+export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner">> & {
   title?: string; stage?: StageId; size?: Size; target?: Target;
 };
 
@@ -151,7 +154,7 @@ export async function updateCard(token: string, full: string, number: number, pa
   const update: Parameters<Octokit["issues"]["update"]>[0] = { owner, repo, issue_number: number };
   if (patch.title) update.title = patch.title.slice(0, 120);
 
-  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel"] as const;
+  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner"] as const;
   if (bodyKeys.some((k) => patch[k] !== undefined)) {
     const cur = parseBody(issue.body);
     const marks = parseMarkers(issue.body);
@@ -161,7 +164,7 @@ export async function updateCard(token: string, full: string, number: number, pa
         idea: pick(patch.idea, cur.idea), spec: pick(patch.spec, cur.spec), steps: pick(patch.steps, cur.steps),
         criteria: pick(patch.criteria, cur.criteria), dependsOn: pick(patch.dependsOn, cur.dependsOn), prompt: pick(patch.prompt, cur.prompt),
       },
-      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel) },
+      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner) },
     );
   }
 
@@ -186,7 +189,7 @@ export async function updateCard(token: string, full: string, number: number, pa
   await gh(token).issues.update(update);
 
   // Handing the card to AI = a fresh `claude` label event, which starts claude-code-action.
-  if (patch.stage === "building" && !before.includes("claude")) {
+  if (patch.stage === "building" && !before.includes("claude") && (patch.runner ?? parseMarkers(issue.body).runner) !== "local") {
     await gh(token).issues.addLabels({ owner, repo, issue_number: number, labels: ["claude"] });
   }
 }
