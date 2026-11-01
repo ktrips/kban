@@ -26,6 +26,12 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
   kban-plan.yml がないリポジトリだけ、サーバーに `ANTHROPIC_API_KEY` があれば従来どおり Claude API(`makePlan`)
 - 優先順位・差し戻しの文面・フォローアップ抽出はまだサーバーから Claude API(`web/lib/ai.ts`、`KBAN_MODEL`、要 `ANTHROPIC_API_KEY`)
 
+## スプリント(週)
+
+- カードの `<!-- kban:sprint=YYYY-MM-DD -->`(その週の月曜、見ている端末の時刻)。工程とは別の軸。計算は `lib/sprint.ts`(テストあり)
+- 量 = 未完了カードの目安(`usage.ts` の `estimate`、実装中は使った分を引く)の合計 + その週にすでに使った分(Issue の usage 履歴)。分母はボードの `weekTokens`(ボード設定で手入力)
+- ドラッグ: マウスは HTML の draggable、タッチは `app/ui/touchDrag.ts`(長押しで持ち上げ、指の下の `data-drop` = `sprint:週` / `lane:工程` / `card:番号` に落とす)
+
 ## iPhone
 
 - `ios/`(SwiftUI + WKWebView + 共有シート拡張。XcodeGen)。UI は web/ を表示するだけ。Google は WebView ログイン不可なので、

@@ -15,7 +15,7 @@ export const GET = async (_: Request, { params }: P) => {
     const cards = (await Promise.all(a.board.repos.map((r) => listCards(a.token, r).catch(() => { failed.push(r.full); return []; })))).flat();
     const b = a.board;
     return {
-      board: { id: b.id, name: b.name, ownerEmail: b.ownerEmail, budgetTokens: b.budgetTokens, repos: b.repos, members: a.role === "owner" ? b.members : undefined },
+      board: { id: b.id, name: b.name, ownerEmail: b.ownerEmail, budgetTokens: b.budgetTokens, weekTokens: b.weekTokens, repos: b.repos, members: a.role === "owner" ? b.members : undefined },
       role: a.role, canEdit: a.canEdit, cards, failed,
     };
   });
@@ -25,7 +25,7 @@ export const PATCH = async (req: Request, { params }: P) => {
   const { id } = await params;
   return handle(async () => {
     const a = await access(id, "owner");
-    const { name, budgetTokens } = await req.json();
+    const { name, budgetTokens, weekTokens } = await req.json();
     if (name !== undefined) {
       if (!String(name || "").trim()) throw bad("ボード名を入れてください");
       a.board.name = String(name).trim().slice(0, 60);
@@ -34,6 +34,11 @@ export const PATCH = async (req: Request, { params }: P) => {
       const n = Number(budgetTokens);
       if (budgetTokens !== null && !(n >= 0)) throw bad("予算は0以上の数で入れてください");
       a.board.budgetTokens = budgetTokens === null || n === 0 ? undefined : Math.round(n);
+    }
+    if (weekTokens !== undefined) {
+      const n = Number(weekTokens);
+      if (weekTokens !== null && !(n >= 0)) throw bad("週の上限は0以上の数で入れてください");
+      a.board.weekTokens = weekTokens === null || n === 0 ? undefined : Math.round(n);
     }
     await saveBoard(a.board);
   });

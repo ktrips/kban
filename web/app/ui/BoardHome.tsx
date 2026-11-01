@@ -5,9 +5,10 @@ import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, 
 import type { RepoSettings, Role } from "@/lib/store";
 import { MonthMeter, WindowMeters } from "./Usage";
 import { ClaudeLink } from "./ClaudeLink";
+import { SprintChip } from "./Sprint";
 
 export type BoardData = {
-  board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
+  board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; weekTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
   role: "owner" | Role; canEdit: boolean; cards: Card[]; failed: string[];
 };
 
@@ -22,11 +23,13 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       <header>
         <div className="crumb">
           <a className="logo" href="#" aria-label="ボード一覧へ" style={{ color: "inherit", textDecoration: "none" }}><b>K</b>ban</a>
+          <span className="tagline">Kanban for Life</span>
           <span className="sep">/</span>
           <h1 style={{ fontFamily: "var(--f-display)", fontSize: 20, fontWeight: 400 }}>{board.name}</h1>
         </div>
         <WindowMeters cards={cards} />
         <MonthMeter cards={cards} budget={board.budgetTokens} />
+        <SprintChip cards={cards} limit={board.weekTokens} />
         {role !== "owner" && <span className="chip">{board.ownerEmail} のボード · {canEdit ? "編集できる" : "見るだけ"}</span>}
         <div className="spacer" />
         {role === "owner" && <button className="btn small" onClick={() => setSheet("share")}>共有{board.members && Object.keys(board.members).length ? ` (${Object.keys(board.members).length})` : ""}</button>}
@@ -183,7 +186,9 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
   const [name, setName] = useState(data.board.name);
   const [confirm, setConfirm] = useState(false);
   const [budget, setBudget] = useState(data.board.budgetTokens ? String(Math.round(data.board.budgetTokens / 10000)) : "");
-  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name, budgetTokens: budget.trim() ? Number(budget) * 10000 : null }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
+  const [week, setWeek] = useState(data.board.weekTokens ? String(Math.round(data.board.weekTokens / 10000)) : "");
+  const man = (v: string) => (v.trim() ? Number(v) * 10000 : null);
+  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name, budgetTokens: man(budget), weekTokens: man(week) }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function del() { try { await api(`/api/boards/${data.board.id}`, "DELETE"); location.hash = ""; toast("ボードを削除しました"); } catch (e) { toast((e as Error).message); } }
   return (
     <Sheet title="ボード設定" onClose={onClose}>
@@ -191,6 +196,8 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
         <div className="field"><label htmlFor="bsName">ボード名</label><input id="bsName" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="field"><label htmlFor="bsBudget">月のトークン予算(万トークン・任意)</label><input id="bsBudget" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} placeholder="例: 500(= 500万)" />
           <span className="note">Claude Code に渡す前の「何%使うか」の分母です。Claude の契約の残り枠は取得できないので、自分で決めた枠になります。</span></div>
+        <div className="field"><label htmlFor="bsWeek">週のトークン上限(万トークン・任意)</label><input id="bsWeek" inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/\D/g, ""))} placeholder="例: 300(= 300万)" />
+          <span className="note">スプリント(週)のタスク量が「上限の何%か」の分母です。Claude の契約の週の利用上限は API で取得できないため、使用状況の画面を見て自分で入れてください。</span></div>
         <div className="btns"><button className="btn primary" onClick={save} disabled={!name.trim()}>保存</button></div>
       </div>
       <div className="section">

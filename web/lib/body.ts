@@ -12,7 +12,7 @@ export type CardBody = {
   dependsOn: number[];
   prompt: string;
 };
-export type Markers = { rank?: number; reason?: string; pr?: string; preview?: string; parallel?: boolean; tokens?: number; cost?: number; usage?: string; runner?: "local"; planning?: number };
+export type Markers = { rank?: number; reason?: string; pr?: string; preview?: string; parallel?: boolean; tokens?: number; cost?: number; usage?: string; runner?: "local"; planning?: number; sprint?: string };
 
 const H = { idea: "背景", spec: "仕様", steps: "進め方", criteria: "受入条件", deps: "前提", prompt: "Claude Codeへの指示" } as const;
 
@@ -70,6 +70,7 @@ export function parseMarkers(body: string | null | undefined): Markers {
   return {
     runner: get("runner") === "local" ? ("local" as const) : undefined,
     planning: num("planning"),
+    sprint: get("sprint") || undefined,
     tokens: num("tokens"),
     cost: num("cost"),
     usage: get("usage") || undefined,

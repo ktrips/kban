@@ -28,6 +28,8 @@ export type Card = CardBody & {
   runner?: "local";
   /** 「AIで進め方を作る」を Actions(kban-plan.yml)に頼んだ時刻(epoch 秒)。結果を書き込むと消える */
   planning?: number;
+  /** スプリント(週)の月曜 YYYY-MM-DD。lib/sprint.ts */
+  sprint?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -130,6 +132,7 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
         cost: m.cost,
         runner: m.runner,
         planning: m.planning,
+        sprint: m.sprint,
         usage: m.usage,
         url: i.html_url,
         createdAt: i.created_at,
@@ -147,7 +150,7 @@ export async function createCard(token: string, full: string, title: string, tar
   return data.number;
 }
 
-export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner" | "planning">> & {
+export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner" | "planning" | "sprint">> & {
   title?: string; stage?: StageId; size?: Size; target?: Target;
 };
 
@@ -157,7 +160,7 @@ export async function updateCard(token: string, full: string, number: number, pa
   const update: Parameters<Octokit["issues"]["update"]>[0] = { owner, repo, issue_number: number };
   if (patch.title) update.title = patch.title.slice(0, 120);
 
-  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner", "planning"] as const;
+  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner", "planning", "sprint"] as const;
   if (bodyKeys.some((k) => patch[k] !== undefined)) {
     const cur = parseBody(issue.body);
     const marks = parseMarkers(issue.body);
@@ -167,7 +170,7 @@ export async function updateCard(token: string, full: string, number: number, pa
         idea: pick(patch.idea, cur.idea), spec: pick(patch.spec, cur.spec), steps: pick(patch.steps, cur.steps),
         criteria: pick(patch.criteria, cur.criteria), dependsOn: pick(patch.dependsOn, cur.dependsOn), prompt: pick(patch.prompt, cur.prompt),
       },
-      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner), planning: pick(patch.planning, marks.planning) },
+      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner), planning: pick(patch.planning, marks.planning), sprint: pick(patch.sprint, marks.sprint) },
     );
   }
 

@@ -60,7 +60,7 @@ export default function App() {
   else if (!route.board) body = <Boards me={me} reloadMe={loadMe} toast={toast} />;
   else if (!data) body = err ? <div className="banner">{err} <a href="#">ボード一覧へ</a></div> : <p className="note">読み込み中…</p>;
   else if (route.repo && repo)
-    body = <RepoBoard budget={data.board.budgetTokens} boardId={data.board.id} boardName={data.board.name} canEdit={data.canEdit} repo={repo} repos={data.board.repos} cards={data.cards} go={go} reload={loadRepo} toast={toast} />;
+    body = <RepoBoard budget={data.board.budgetTokens} weekLimit={data.board.weekTokens} boardId={data.board.id} boardName={data.board.name} canEdit={data.canEdit} repo={repo} repos={data.board.repos} cards={data.cards} go={go} reload={loadRepo} toast={toast} />;
   else body = <BoardHome data={data} go={go} reload={loadBoard} toast={toast} />;
 
   return (

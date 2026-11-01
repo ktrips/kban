@@ -32,6 +32,8 @@ code{font-family:var(--f-mono);font-size:.92em;background:var(--soft);padding:0 
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .logo{font-family:var(--f-display);font-size:28px;letter-spacing:.02em;line-height:1;background:none;border:0;padding:0;cursor:pointer}
 .logo b{color:var(--accent);font-weight:400}
+.tagline{font-family:var(--f-display);font-size:14px;letter-spacing:.02em;color:var(--muted);white-space:nowrap}
+@media (max-width:600px){.crumb .tagline{display:none}}
 .crumb{display:flex;align-items:center;gap:8px;min-width:0}
 .crumb .sep{color:var(--line);font-size:22px}
 .crumb select{font-family:var(--f-display);font-size:20px;border:0;background:transparent;padding:0 2px;cursor:pointer;max-width:60vw}
@@ -191,3 +193,21 @@ h1{font-size:15px;margin:0}
 .meter{height:8px;border-radius:99px;background:var(--line);display:flex;overflow:hidden}
 .meter i{display:block;height:100%;background:var(--muted)}
 .meter i.plus{background:var(--s-building)}
+/* スプリント(週)。ドラッグの落とし先 */
+.sprint{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.sprint.over{border-left-color:var(--bad)}
+.sprint.dragover,.lane.dragover{outline:2px dashed var(--accent);outline-offset:-2px}
+.sp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sp-head h2{margin:0;font-size:14px}
+.sp-week{display:flex;align-items:center;gap:4px}
+.sp-load{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.sp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sp-list li{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:6px 8px;background:var(--bg)}
+.sp-list li.done .sp-t{text-decoration:line-through;color:var(--muted)}
+.sp-t{flex:1 1 160px;min-width:0;text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:6px}
+.sp-t .dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.chip.wk{color:var(--accent);border-color:currentColor}
+/* 指でのドラッグ(touchDrag.ts) */
+.drag-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+body.touch-dragging{-webkit-user-select:none;user-select:none}
+@media (hover:none){.card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}}

@@ -24,6 +24,8 @@ export type Board = {
   members: Record<string, Role>; // email → role
   /** 月ごとのトークン予算(目安。Claude の契約の上限そのものではなく、自分で決める枠) */
   budgetTokens?: number;
+  /** 週のトークン上限(スプリントの見積もりの分母。Claude の契約の週の枠を自分で入れる。API では取れない) */
+  weekTokens?: number;
   createdAt: string;
 };
 export type User = {

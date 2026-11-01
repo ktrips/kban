@@ -10,19 +10,24 @@ import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
+import { SprintPanel } from "./Sprint";
+import { touchDrag } from "./touchDrag";
+import { addWeeks, weekLabel, weekOf } from "@/lib/sprint";
+import { estimate, fmtTokens } from "@/lib/usage";
 
 /* ---------------- repo board ---------------- */
 /** Actions(kban-plan.yml)の Claude Code が進め方を作っている間。止まった実行で押せなくならないよう 20 分で切る */
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  budget?: number; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  budget?: number; weekLimit?: number; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ budget, weekLimit, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
+  const [week, setWeek] = useState(() => weekOf());
   const [openNo, setOpenNo] = useState<number | null>(null);
   const [busy, setBusy] = useState<Record<string, string>>({});
   const [proposal, setProposal] = useState<Priority[] | "loading" | null>(null);
@@ -47,6 +52,9 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
     const rank = ordered(s) ? Math.max(0, ...by[s].map((x) => (x.rank < 100000 ? x.rank : 0))) + 1 : undefined;
     return patch(c, { stage: s, rank }, s === "building" ? "Claude Code に渡しました" : `${stageName(s)}に移動しました`);
   };
+  /** スプリント(週)に入れる / "" で外す */
+  const setSprint = (c: Card, w: string) => c.sprint === w ? Promise.resolve()
+    : patch(c, { sprint: w }, w ? `${weekLabel(w)}のスプリントに入れました` : "スプリントから外しました");
   const reorder = (c: Card, to: number) => {
     const list = by[c.stage].filter((x) => x.number !== c.number);
     list.splice(Math.max(0, Math.min(to, list.length)), 0, c);
@@ -108,16 +116,27 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
   const [dragNo, setDragNo] = useState<number | null>(null);
   const drop = (s: StageId, overNo?: number) => {
     const c = cards.find((x) => x.number === dragNo); setDragNo(null);
-    if (!c) return;
+    if (c) dropCard(c, s, overNo);
+  };
+  const dropSprint = () => { const c = cards.find((x) => x.number === dragNo); setDragNo(null); if (c) setSprint(c, week); };
+  /** 指で動かしたカードを落とした先(data-drop): "sprint:週" / "lane:工程" / "card:番号" */
+  const touchDrop = (c: Card, target: string) => {
+    const [kind, v] = target.split(":");
+    if (kind === "sprint") setSprint(c, v);
+    else if (kind === "lane") dropCard(c, v as StageId);
+    else if (kind === "card") { const o = cards.find((x) => x.number === Number(v)); if (o) dropCard(c, o.stage, o.number); }
+  };
+  function dropCard(c: Card, s: StageId, overNo?: number) {
     if (c.stage !== s) { if (s === "building" && (c.stage === "backlog" || c.stage === "ready")) local(c); else move(c, s); return; }
     if (ordered(s) && overNo !== undefined && overNo !== c.number) reorder(c, by[s].filter((x) => x.number !== c.number).findIndex((x) => x.number === overNo));
-  };
+  }
 
   return (
     <>
       <header>
         <div className="crumb">
           <a className="logo" href="#" aria-label="ボード一覧へ" style={{ color: "inherit", textDecoration: "none" }}><b>K</b>ban</a>
+          <span className="tagline">Kanban for Life</span>
           <span className="sep">/</span>
           <button type="button" className="btn ghost" onClick={() => go(null)}>{boardName}</button>
           <span className="sep">/</span>
@@ -149,6 +168,9 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
         <div className="sum"><span className="lbl">どこまで終わったか</span><span className="big">{rate}<small className="note">%</small></span><StagesBar list={cards} /><span className="note">完了 {by.done.length} / 全 {cards.length} 件</span></div>
       </div>
 
+      <SprintPanel week={week} setWeek={setWeek} all={allCards} repo={repo.full} limit={weekLimit} canEdit={canEdit}
+        onOpen={(c) => setOpenNo(c.number)} onRemove={(c) => setSprint(c, "")} onDrop={dropSprint} />
+
       <div className="strip-scroll"><div className="strip">
         {STAGES.map((s, i) => {
           const n = by[s.id].length; const wip = "wip" in s ? s.wip : 0;
@@ -179,7 +201,7 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
 
       <div className="board-scroll"><div className="board">
         {STAGES.map((s) => (
-          <section key={s.id} className={`lane ${stage === s.id ? "active" : ""}`} style={cssVar(s.id)}
+          <section key={s.id} className={`lane ${stage === s.id ? "active" : ""}`} style={cssVar(s.id)} data-drop={canEdit ? `lane:${s.id}` : undefined}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); drop(s.id); }}>
             <h2>{s.name}<span className="n">{by[s.id].length}{"wip" in s ? ` / ${s.wip}` : ""}</span></h2>
             <div className="hint">{s.hint}
@@ -187,19 +209,20 @@ export function RepoBoard({ budget, boardId, boardName, canEdit, repo, repos, ca
             {by[s.id].length === 0 && <div className="empty">{s.id === "backlog" ? "上の欄から書き込む" : "まだありません"}</div>}
             {by[s.id].map((c, i) => <CardView key={c.id} canEdit={canEdit} c={c} i={i} n={by[s.id].length} all={cards} busy={busy[c.number]}
               onOpen={() => setOpenNo(c.number)} onPlan={() => plan(c)} onMove={(d) => reorder(c, i + d)}
-              onDragStart={() => setDragNo(c.number)} onDropOn={() => drop(s.id, c.number)} />)}
+              onDragStart={() => setDragNo(c.number)} onDropOn={() => drop(s.id, c.number)} onTouchDrop={(t) => touchDrop(c, t)} />)}
           </section>
         ))}
       </div></div>
 
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
 
-function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragStart, onDropOn }: {
+function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragStart, onDropOn, onTouchDrop }: {
   canEdit: boolean; c: Card; i: number; n: number; all: Card[]; busy?: string; onOpen: () => void; onPlan: () => void; onMove: (d: number) => void; onDragStart: () => void; onDropOn: () => void;
+  onTouchDrop: (target: string) => void;
 }) {
   const ord = ordered(c.stage);
   const edit = canEdit;
@@ -209,6 +232,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
     <article className="card" tabIndex={0} draggable={edit} style={cssVar(c.stage)} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()}
+      data-drop={edit ? `card:${c.number}` : undefined} onTouchStart={edit ? (e) => touchDrag(e, c.title, onTouchDrop) : undefined}
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", String(c.number)); onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("dragover"); }}
       onDragLeave={(e) => e.currentTarget.classList.remove("dragover")}
@@ -223,6 +247,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
       </div>
       <div className="meta">
         {c.size && <span className="chip">{c.size}</span>}
+        {c.sprint && c.stage !== "done" && <span className="chip wk" title="スプリント(週)">{weekLabel(c.sprint)}</span>}
         {c.steps.length > 0 && <span className="chip">進め方 {sd}/{c.steps.length}</span>}
         {(c.stage === "testing" || c.stage === "verifying") && c.criteria.length > 0 && <span className="chip">受入 {c.criteria.filter((x) => x.done).length}/{c.criteria.length}</span>}
         {bl.length ? <span className="chip wait" title={bl.map((x) => x.title).join("、")}>前提待ち {bl.length}</span> : c.parallel && ord ? <span className="chip par">並行可</span> : null}
@@ -237,8 +262,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ local, complete, imgBase, base, budget, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -339,6 +364,7 @@ function Sheet({ local, complete, imgBase, base, budget, boardCards, canEdit, c,
           <div className="field"><label htmlFor="size">サイズ</label><select id="size" value={c.size} disabled={!!busy} onChange={(e) => patch(c, { size: e.target.value as Size })}><option value="">未定</option><option value="S">S 半日</option><option value="M">M 1〜2日</option><option value="L">L 3日〜</option></select></div>
           <div className="field"><label htmlFor="tgt">対象</label><select id="tgt" value={c.target} disabled={!!busy} onChange={(e) => patch(c, { target: e.target.value })}><option value="web">Web</option><option value="ios">iOS</option><option value="both">iOS+Web</option></select></div>
         </div>
+        <SprintField c={c} all={boardCards} weekLimit={weekLimit} busy={busy} setSprint={setSprint} />
         <div className="field"><label>前提(先に終わっている必要があるもの)</label><div className="deps">
           {others.length ? others.map((o) => (
             <label key={o.number}><input type="checkbox" disabled={!!busy} checked={c.dependsOn.includes(o.number)}
@@ -374,6 +400,23 @@ function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete:
       <label htmlFor="fol">フォローアップ(1行1件。空なら報告から AI が取り出す)</label>
       <textarea id="fol" value={follow} onChange={(e) => setFollow(e.target.value)} placeholder="例: 横向きのときのテストを足す" />
       <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "完了にしています…" : "完了にする(フォローアップは新しいアイデアに)"}</button></div>
+    </div>
+  );
+}
+
+/** カードの詳細: どの週のスプリントに入れるか(ドラッグの代わりにも使える)と、週の上限に対する目安 */
+function SprintField({ c, all, weekLimit, busy, setSprint }: { c: Card; all: Card[]; weekLimit?: number; busy?: string; setSprint: (c: Card, w: string) => Promise<void> }) {
+  const cur = weekOf();
+  const weeks = [cur, addWeeks(cur, 1), addWeeks(cur, 2)];
+  if (c.sprint && !weeks.includes(c.sprint)) weeks.unshift(c.sprint);
+  const e = estimate(c, all);
+  return (
+    <div className="field"><label htmlFor="spr">スプリント(週)</label>
+      <select id="spr" value={c.sprint || ""} disabled={!!busy} onChange={(ev) => setSprint(c, ev.target.value)}>
+        <option value="">入れない</option>
+        {weeks.map((w) => <option key={w} value={w}>{weekLabel(w)}({w.slice(5).replace("-", "/")}〜)</option>)}
+      </select>
+      <span className="note">目安 約 {fmtTokens(e.tokens)} トークン{weekLimit ? ` = 週の上限の ${Math.round((e.tokens / weekLimit) * 100)}%` : "(ボード設定で週の上限を入れると % が出ます)"}</span>
     </div>
   );
 }
