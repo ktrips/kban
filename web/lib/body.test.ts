@@ -14,7 +14,7 @@ test("body and markers round-trip", () => {
   };
   const md = renderBody(b, { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9" });
   assert.deepEqual(parseBody(md), b);
-  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined, tokens: undefined, cost: undefined, usage: undefined, runner: undefined, planning: undefined });
+  assert.deepEqual(parseMarkers(md), { rank: 2, reason: "小さく早く出せる", pr: "https://github.com/o/r/pull/9", preview: undefined, parallel: undefined, tokens: undefined, cost: undefined, usage: undefined, runner: undefined, planning: undefined, sprint: undefined });
 });
 
 test("empty sections stay empty", () => {
