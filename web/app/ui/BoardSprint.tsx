@@ -22,13 +22,8 @@ const KEY = "kban:addRepo";
 export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void }) {
   const { board, cards, canEdit, limits } = data;
   const [week, setWeek] = useState(() => weekOf());
-  const [addTo, setAddTo] = useState(board.repos[0]?.full || "");
   const [tag, setTag] = useState(""); // 候補を絞り込むリポジトリ("" = すべて)
   const [busy, setBusy] = useState("");
-
-  useEffect(() => {
-    try { const v = localStorage.getItem(KEY); if (v && board.repos.some((r) => r.full === v)) setAddTo(v); } catch { /* 使えなくてもよい */ }
-  }, [board.repos]);
 
   const name = (full: string) => board.repos.find((r) => r.full === full)?.name || full;
   const hue = (full: string) => (Math.max(0, board.repos.findIndex((r) => r.full === full)) * 67 + 200) % 360;
@@ -51,21 +46,6 @@ export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: 
     } catch (e) { toast((e as Error).message); }
     setBusy("");
   }
-  async function add(memo: string, files: File[]) {
-    const form = new FormData();
-    form.set("memo", memo);
-    files.forEach((f) => form.append("images", f));
-    setBusy("add");
-    try {
-      const r = await fetch(`/api/boards/${board.id}/r/${addTo}/cards`, { method: "POST", body: form });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-      await reload();
-      toast(`${name(addTo)} のバックログに追加しました`);
-    } catch (e) { toast((e as Error).message); }
-    setBusy("");
-  }
-
   const w = (n?: number) => `${Math.min(100, Math.max(0, n || 0))}%`;
   const total = l.totalPct;
   const verdict = total === undefined
@@ -135,16 +115,42 @@ export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: 
           ))}</ul>}
       {pool.length > 40 && <div className="note">ほか {pool.length - 40} 件。リポジトリで絞り込んでください</div>}
 
-      {canEdit && board.repos.length > 0 && (
-        <div className="section">
-          <h3>アイデアを追加(バックログ)</h3>
-          <div className="field"><label htmlFor="bsRepo">追加先のリポジトリ</label>
-            <select id="bsRepo" value={addTo} onChange={(e) => { setAddTo(e.target.value); try { localStorage.setItem(KEY, e.target.value); } catch { /* 使えなくてもよい */ } }}>
-              {board.repos.map((r) => <option key={r.full} value={r.full}>{r.name}</option>)}
-            </select></div>
-          <QuickAdd placeholder={`${name(addTo)} で次に作りたいことを書く…`} busy={busy === "add"} onAdd={add} />
-        </div>
-      )}
+    </section>
+  );
+}
+
+/** ボード画面の一番上: リポジトリを選んでバックログにアイデアを追加する */
+export function BoardAdd({ data, reload, toast }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void }) {
+  const { board, canEdit } = data;
+  const [addTo, setAddTo] = useState(board.repos[0]?.full || "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    try { const v = localStorage.getItem(KEY); if (v && board.repos.some((r) => r.full === v)) setAddTo(v); } catch { /* 使えなくてもよい */ }
+  }, [board.repos]);
+  if (!canEdit || !board.repos.length) return null;
+  const name = board.repos.find((r) => r.full === addTo)?.name || addTo;
+
+  async function add(memo: string, files: File[]) {
+    const form = new FormData();
+    form.set("memo", memo);
+    files.forEach((f) => form.append("images", f));
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/boards/${board.id}/r/${addTo}/cards`, { method: "POST", body: form });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      await reload();
+      toast(`${name} のバックログに追加しました`);
+    } catch (e) { toast((e as Error).message); }
+    setBusy(false);
+  }
+  return (
+    <section className="section" aria-label="アイデアを追加">
+      <div className="field"><label htmlFor="bsRepo">アイデアを追加するリポジトリ</label>
+        <select id="bsRepo" value={addTo} onChange={(e) => { setAddTo(e.target.value); try { localStorage.setItem(KEY, e.target.value); } catch { /* 使えなくてもよい */ } }}>
+          {board.repos.map((r) => <option key={r.full} value={r.full}>{r.name}</option>)}
+        </select></div>
+      <QuickAdd placeholder={`${name} で次に作りたいことを書く…`} busy={busy} onAdd={add} />
     </section>
   );
 }

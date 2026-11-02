@@ -6,7 +6,7 @@ import type { RepoSettings, Role } from "@/lib/store";
 import { MonthMeter, WindowMeters } from "./Usage";
 import { ClaudeLink } from "./ClaudeLink";
 import { SprintChip } from "./Sprint";
-import { BoardSprint } from "./BoardSprint";
+import { BoardAdd, BoardSprint } from "./BoardSprint";
 import { LimitsChips } from "./Limits";
 import type { ClaudeLimits } from "@/lib/limits";
 
@@ -26,7 +26,6 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       <header>
         <div className="crumb">
           <a className="logo" href="#" aria-label="ボード一覧へ" style={{ color: "inherit", textDecoration: "none" }}><b>K</b>ban</a>
-          <span className="tagline">Kanban for Life</span>
           <span className="sep">/</span>
           <h1 style={{ fontFamily: "var(--f-display)", fontSize: 20, fontWeight: 400 }}>{board.name}</h1>
         </div>
@@ -41,6 +40,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       </header>
       {data.failed.length > 0 && <div className="banner">読み込めなかったリポジトリ: {data.failed.join("、")}(GitHub の権限を確認してください)</div>}
 
+      <BoardAdd data={data} reload={reload} toast={toast} />
       <BoardSprint data={data} reload={reload} toast={toast} />
 
       <div className="home-grid">
@@ -51,7 +51,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
           return (
             <div key={r.full} className="repo" role="button" tabIndex={0} onClick={() => go(r.full)} onKeyDown={(e) => e.key === "Enter" && go(r.full)}>
               <div className="btns" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div><div className="nm">{r.name}</div><div className="full">{r.full} · {tLabel(r.target)}</div></div>
+                <div><div className="nm">{r.name}</div><div className="full">{r.about || `${r.full} · ${tLabel(r.target)}`}</div></div>
                 {canEdit && <button className="btn icon" onClick={(e) => { e.stopPropagation(); setSheet({ repo: r.full }); }}>設定</button>}
               </div>
               <div className="counts">
