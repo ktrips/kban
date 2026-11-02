@@ -15,3 +15,10 @@ export function splitIdea(idea: string, imgBase: string) {
 
 export const joinIdea = (text: string, md: string[]) => [text.trim(), ...md].filter(Boolean).join("\n\n");
 export const imageCount = (idea: string) => (idea.match(IMG) || []).length;
+
+/** idea の中の、添付画像 name の Markdown を md に置き換える(リポジトリを移すとき、画像のコピー先の URL にする) */
+export function replaceImage(idea: string, name: string, md: string) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return idea.replace(new RegExp(`!\\[[^\\]]*\\]\\(https://github\\.com/[^)\\s]+/blob/kban-attachments/attachments/${esc}\\?raw=true\\)`), () => md);
+}
+export const imageNames = (idea: string) => [...idea.matchAll(IMG)].map((m) => m[1]);

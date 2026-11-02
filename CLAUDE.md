@@ -50,6 +50,8 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が完了にして、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
 
+- カードのリポジトリ変更: `POST .../cards/[n]/move` → `lib/move.ts`(GraphQL `transferIssue`)。同じオーナー・backlog/ready のみ。画像は移し先にコピーして URL を差し替える。**未検証**(実際の GitHub では動かしていない)
+
 ## Claude Code 連携(リポジトリ側)
 
 - `templates/` が元。Firebase の build は `web/` だけでも動くよう、`web/scripts/sync-templates.mjs`(`prebuild`)が `web/lib/templates.generated.ts` に埋め込む。**templates を変えたら `npm run sync-templates` してコミット**(テストが古さを検出)

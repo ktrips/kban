@@ -78,7 +78,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         )) : <div className="note">いま進行中の作業はありません。各リポジトリの「次にやる」から AI に渡しましょう。</div>}
       </section>
 
-      <BoardCardSheet boardId={board.id} open={openCard} allCards={cards} canEdit={canEdit} budget={board.budgetTokens} weekLimit={board.weekTokens} reload={reload} toast={toast} onClose={() => setOpenCard(null)} />
+      <BoardCardSheet repos={board.repos} boardId={board.id} open={openCard} allCards={cards} canEdit={canEdit} budget={board.budgetTokens} weekLimit={board.weekTokens} reload={reload} toast={toast} onClose={() => setOpenCard(null)} />
       {sheet === "pick" && <Picker boardId={board.id} have={board.repos.map((r) => r.full)} onClose={() => setSheet(null)} done={async (full) => { setSheet(null); await reload(); toast(`${full} を追加しました`); }} toast={toast} />}
       {sheet === "share" && <Share data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
