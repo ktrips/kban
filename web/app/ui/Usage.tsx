@@ -1,50 +1,16 @@
 "use client";
 
 import type { Card } from "./common";
-import { estimate, monthUsed, windowUsed, fmtTokens, pct } from "@/lib/usage";
+import { estimate, fmtTokens } from "@/lib/usage";
 
-/** Claude Code に渡す前の使用量の目安と、月の予算に対する割合。 */
-export function EstimateBox({ card, all, budget }: { card: Card; all: Card[]; budget?: number }) {
+/** Claude Code に渡す前の使用量の目安(1行) */
+export function EstimateBox({ card, all }: { card: Card; all: Card[] }) {
   const e = estimate(card, all);
-  const used = monthUsed(all);
-  const left = budget ? Math.max(0, budget - used) : 0;
-  const over = budget ? used + e.tokens > budget : false;
+  const why = e.basis === "history" ? `同じサイズ(${card.size || "M"})の完了済み ${e.samples} 件の実績から` : `サイズ ${card.size || "M"} の既定値から。実績が2件たまると実績ベースに`;
   return (
-    <div className="estimate">
-      <div><b>目安 約 {fmtTokens(e.tokens)} トークン</b> <span className="note">({fmtTokens(e.low)}〜{fmtTokens(e.high)})</span></div>
-      <div className="note">{e.basis === "history" ? `同じサイズ(${card.size || "M"})の完了済み ${e.samples} 件の実績から` : `サイズ ${card.size || "M"} の既定値から。実績が2件たまると、実績ベースになります`}</div>
-      {budget
-        ? <>
-            <div className={over ? "err" : ""}>月の予算 {fmtTokens(budget)} の <b>{pct(e.tokens, budget)}%</b> を使う見込み(今月は {fmtTokens(used)} 使用済み・残り {fmtTokens(left)}){over && " — 予算を超えます"}</div>
-            <div className="meter"><i style={{ width: `${Math.min(100, pct(used, budget))}%` }} /><i className="plus" style={{ width: `${Math.min(100 - Math.min(100, pct(used, budget)), pct(e.tokens, budget))}%` }} /></div>
-          </>
-        : <div className="note">月の予算を決めると「%」が出ます(ボード設定)。Claude の契約の残り枠は取得できないため、自分で決めた枠に対する割合です。</div>}
+    <div className="estimate" title={why}>
+      <b>目安 約 {fmtTokens(e.tokens)}</b> <span className="note">({fmtTokens(e.low)}〜{fmtTokens(e.high)} トークン)</span>
     </div>
-  );
-}
-
-/** ボード全体の今月の使用量 */
-export function MonthMeter({ cards, budget }: { cards: Card[]; budget?: number }) {
-  const used = monthUsed(cards);
-  if (!used && !budget) return null;
-  return (
-    <div className="chip" title="今月に更新されたカードの Claude Code 実績の合計">
-      今月 {fmtTokens(used)} トークン{budget ? ` / ${fmtTokens(budget)}(${pct(used, budget)}%)` : ""}
-    </div>
-  );
-}
-
-/** 直近5時間・直近7日の使用量(kban から Claude Code を動かした分) */
-export function WindowMeters({ cards }: { cards: Card[] }) {
-  const h5 = windowUsed(cards, 5);
-  const d7 = windowUsed(cards, 24 * 7);
-  const tip = "kban から動かした Claude Code のトークン合計です。ターミナルや claude.ai の使用は含まず、契約の枠(%)そのものではありません";
-  return (
-    <>
-      <div className="chip" title={`直近5時間。${tip}`}>5時間 {fmtTokens(h5)} <span className="note">(kban 経由)</span></div>
-      <div className="chip" title={`直近7日間。${tip}`}>1週間 {fmtTokens(d7)} <span className="note">(kban 経由)</span></div>
-      <a className="chip" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">契約の使用状況 ↗</a>
-    </>
   );
 }
 

@@ -5,16 +5,6 @@ import { api } from "./common";
 import { ageText, resetText, type ClaudeLimits } from "@/lib/limits";
 import type { Me } from "./Boards";
 
-/** Claude の契約の使用率(手元の Claude Code が送ったもの)。5時間枠・7日枠の % とリセット時刻 */
-export function LimitsChips({ limits }: { limits?: ClaudeLimits | null }) {
-  if (!limits) return null;
-  const t = `Claude から取得(${ageText(limits.at)})。手元の Claude Code のステータスラインが送った値`;
-  return <>
-    {limits.fiveHour && <div className={`chip ${limits.fiveHour.pct >= 80 ? "wait" : ""}`} title={`${t}。リセット ${resetText(limits.fiveHour.resetsAt)}`}>Claude 5時間 {Math.round(limits.fiveHour.pct)}%</div>}
-    {limits.sevenDay && <div className={`chip ${limits.sevenDay.pct >= 80 ? "wait" : ""}`} title={`${t}。リセット ${resetText(limits.sevenDay.resetsAt)}`}>Claude 週 {Math.round(limits.sevenDay.pct)}%</div>}
-  </>;
-}
-
 /** トップ画面: 手元の Claude Code から、契約の使用率を kban に送る設定 */
 export function LimitsSetup({ me, toast }: { me: Me; toast: (m: string) => void }) {
   const [token, setToken] = useState("");

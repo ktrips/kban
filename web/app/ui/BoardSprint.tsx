@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Card, api, stageName, cssVar } from "./common";
-import { MonthMeter, WindowMeters } from "./Usage";
-import { LimitsChips } from "./Limits";
 import { QuickAdd } from "./QuickAdd";
 import type { BoardData } from "./BoardHome";
 import { addWeeks, remaining, sprintLoad, weekLabel, weekOf, weekRange } from "@/lib/sprint";
@@ -52,7 +50,7 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
   const total = l.totalPct;
   const verdict = total === undefined
     ? (l.usedPct !== undefined && l.usedPct >= 100 ? "すでに上限に達しています" : "")
-    : total > 100 ? `超過しそうです(上限の ${total}%)` : total >= 85 ? `ぎりぎりです(上限の ${total}%)` : `収まりそうです(上限の ${total}%)`;
+    : total > 100 ? `超過しそう ${total}%` : total >= 85 ? `ぎりぎり ${total}%` : `収まりそう ${total}%`;
 
   return (
     <section className={`sprint ${l.over ? "over" : ""}`} aria-label="スプリント(全リポジトリ)">
@@ -67,19 +65,19 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
       </div>
 
       <div className="sp-load">
-        {verdict && <div className={`chip ${l.over ? "wait" : ""}`} style={{ fontSize: 15, padding: "4px 10px" }}>{l.over ? "⚠ " : total !== undefined && total >= 85 ? "△ " : "✓ "}{verdict}</div>}
-        <div className="note">
-          見込み {fmtTokens(l.planned)}{l.plannedPct !== undefined ? `(${l.plannedPct}%)` : ""}
-          {l.usedFrom === "claude" ? <> + Claude の週の枠 使用済み <b>{l.usedPct}%</b>({ageText(limits!.at)}に取得・リセット {resetText(l.resetsAt!)})</>
-            : <> + 使用済み {fmtTokens(l.used)}{l.usedPct !== undefined ? `(${l.usedPct}%)` : ""}(kban から動かした分)</>}
+        <div className="sp-line">
+          {verdict && <span className={`chip ${l.over ? "wait" : ""}`} title="週の上限に対する割合(使用済み + このスプリントの見込み)">{l.over ? "⚠ " : total !== undefined && total >= 85 ? "△ " : "✓ "}{verdict}</span>}
+          <span className="note" title={l.usedFrom === "claude" ? `Claude の週の枠の実際の使用率(${ageText(limits!.at)}に取得・リセット ${resetText(l.resetsAt!)})` : "kban から動かした分の使用量"}>
+            見込み {fmtTokens(l.planned)}{l.plannedPct !== undefined ? ` (${l.plannedPct}%)` : ""}
+            {l.usedFrom === "claude" ? <> + 使用済み <b>{l.usedPct}%</b></> : <> + 使用済み {fmtTokens(l.used)}{l.usedPct !== undefined ? ` (${l.usedPct}%)` : ""}</>}
+          </span>
+          <a className="note" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">契約の使用状況 ↗</a>
         </div>
         {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
-          <div className="meter" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
-        {!board.weekTokens && <div className="note">%で見るには、「ボード設定」で週の上限(トークン換算)を入れてください</div>}
-        {!limits && week === weekOf() && <div className="note">Claude の実際の使用率を出すには、トップの「Claude の使用率を kban に送る」を設定してください</div>}
-        {l.over && <div className="err">タスクを来週に回すか、サイズを小さく分けましょう</div>}
-        <div className="btns"><WindowMeters cards={cards} /><MonthMeter cards={cards} budget={board.budgetTokens} /><LimitsChips limits={limits} /></div>
-        {perRepo.length > 0 && <div className="btns">{perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> {x.n} 件 · 約 {fmtTokens(x.t)}</span>)}</div>}
+          <div className="meter slim" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
+        {!board.weekTokens && <div className="note">「ボード設定」で週の上限を入れると % で見られます</div>}
+        {l.over && <div className="err">来週に回すか、サイズを小さく分けましょう</div>}
+        {perRepo.length > 0 && <div className="sp-line">{perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> {x.n}件 · {fmtTokens(x.t)}</span>)}</div>}
       </div>
 
       {inSprint.length === 0
