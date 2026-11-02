@@ -59,9 +59,4 @@ export function QuickAdd({ placeholder, busy, onAdd, lead }: { placeholder: stri
   );
 }
 
-/** アイデア本文から kban の添付画像を取り出す(表示は kban の画像ルート経由)。 */
-export function splitIdea(idea: string, imgBase: string) {
-  const re = /!\[[^\]]*\]\(https:\/\/github\.com\/[^)\s]+\/blob\/kban-attachments\/attachments\/([\w.-]+)\?raw=true\)/g;
-  const images = [...idea.matchAll(re)].map((m) => `${imgBase}/${m[1]}`);
-  return { text: idea.replace(re, "").trim(), images };
-}
+export { splitIdea } from "@/lib/idea";

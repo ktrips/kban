@@ -86,3 +86,16 @@ export function sprintLoad(week: string, all: Card[], limit?: number, now = new 
     usedFrom: limit ? "kban" : undefined,
   };
 }
+
+/** 実装が終わって「確認」以降に進んだ(= スプリントの仕事ではなくなった)工程 */
+const past = (stage: string) => stage === "verifying" || stage === "done";
+
+/**
+ * 週が終わっても実装が終わっていないカード(その週より前のスプリントに入ったまま、確認以降でないもの)。
+ * 開いたときに、いまの週のスプリントへ自動で回す対象。
+ */
+export const rolloverTargets = <T extends Pick<Card, "sprint" | "stage">>(cards: T[], week: string) =>
+  cards.filter((c) => !!c.sprint && c.sprint < week && !past(c.stage));
+
+/** 確認以降に進んだのにスプリントに残っているカード(Actions が工程を進めた分など)。スプリントから外す対象 */
+export const exitTargets = <T extends Pick<Card, "sprint" | "stage">>(cards: T[]) => cards.filter((c) => !!c.sprint && past(c.stage));

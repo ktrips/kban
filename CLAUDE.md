@@ -41,13 +41,18 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
   `ASWebAuthenticationSession` → `/api/native/start` → `kban://done?code&token` → `/api/native/exchange`(セッション Cookie を発行)
 - 共有シートは個人トークン(`kbt_…`、`store.ts` にハッシュで保存)を Bearer で `/api/capture` に送る。追加処理は `lib/capture.ts` で Web の追加欄と共通
 - スクリーンショットは `lib/attach.ts` が `kban-attachments` ブランチに commit し、Issue の背景に Markdown 画像で入れる。表示は `/api/boards/.../img/[name]`
+- 画像の読み出しは `lib/image.ts`。Octokit の `mediaType: raw` は charset=utf-8 付きの応答を文字列にして**バイナリを壊す**ので使わない(base64 / blob API)。アップロード時は `sniffImageType` で中身から形式を判定
 - **未検証**: Swift のコードはこの環境(Linux)でビルドしていない。`.github/workflows/ios-build.yml` と実機で確認すること
 
 ## 手元の Claude で進める
 
 - 「AI実装中」へのドロップ / 「手元のClaudeで進める」→ `POST .../cards/[n]/handoff`: 工程を building にし、Issue に `<!-- kban:runner=local -->`(`claude` ラベルは付けない)。指示は `lib/prompt.ts`、カード専用の使い捨てトークン `kbc_…`(`store.ts`、14日)を末尾に入れる
-- Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が完了にして、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
+- Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が**「確認」に進めて**(スプリントから外れる。OK で完了)、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
+
+- カードのリポジトリ変更: `POST .../cards/[n]/move` → `lib/move.ts`(GraphQL `transferIssue`)。同じオーナー・backlog/ready のみ。画像は移し先にコピーして URL を差し替える。**未検証**(実際の GitHub では動かしていない)
+- 実装が終わって確認以降(verifying/done)に進んだカードはスプリントから外れる: `updateCard` が stage を verifying/done にするとき sprint を空にする。workflow(resolve.js)が進めた分は `exitTargets` を画面が開いたとき片付ける
+- スプリントの自動繰り越し: 週が過ぎても実装が終わっていないカード(`lib/sprint.ts rolloverTargets`、確認以降は対象外)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
 
 ## Claude Code 連携(リポジトリ側)
 

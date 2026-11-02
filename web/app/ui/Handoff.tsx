@@ -36,7 +36,7 @@ export function HandoffSheet({ title, r, copied, onClose, toast }: { title: stri
             <button className="btn primary" onClick={copy}>{ok ? "もう一度コピー" : "指示をコピー"}</button>
             <a className="btn" href={r.claudeUrl} target="_blank" rel="noreferrer">claude.ai で開く</a>
           </div>
-          <p className="note" style={{ margin: 0 }}>終わったら、Claude が最後のコマンドで kban に報告すると、カードが完了になり、残った課題が新しいアイデアになります。報告されなかったときは、カードの「完了にする」から貼り付けて完了できます。</p>
+          <p className="note" style={{ margin: 0 }}>終わったら、Claude が最後のコマンドで kban に報告すると、カードが「確認」に進み(スプリントからは外れます)、残った課題が新しいアイデアになります。確認して OK すると完了です。報告されなかったときは、カードの「実装が終わった」から貼り付けて進められます。</p>
           <textarea readOnly value={r.prompt} rows={10} style={{ width: "100%", fontFamily: "var(--f-mono, monospace)", fontSize: 12 }} aria-label="貼り付ける指示" onFocus={(e) => e.currentTarget.select()} />
         </div>
       </aside>
