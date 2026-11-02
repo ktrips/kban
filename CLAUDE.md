@@ -41,6 +41,7 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
   `ASWebAuthenticationSession` → `/api/native/start` → `kban://done?code&token` → `/api/native/exchange`(セッション Cookie を発行)
 - 共有シートは個人トークン(`kbt_…`、`store.ts` にハッシュで保存)を Bearer で `/api/capture` に送る。追加処理は `lib/capture.ts` で Web の追加欄と共通
 - スクリーンショットは `lib/attach.ts` が `kban-attachments` ブランチに commit し、Issue の背景に Markdown 画像で入れる。表示は `/api/boards/.../img/[name]`
+- 画像の読み出しは `lib/image.ts`。Octokit の `mediaType: raw` は charset=utf-8 付きの応答を文字列にして**バイナリを壊す**ので使わない(base64 / blob API)。アップロード時は `sniffImageType` で中身から形式を判定
 - **未検証**: Swift のコードはこの環境(Linux)でビルドしていない。`.github/workflows/ios-build.yml` と実機で確認すること
 
 ## 手元の Claude で進める

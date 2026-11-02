@@ -1,4 +1,5 @@
 import { gh } from "./github";
+import { readImageWith } from "./image";
 
 /**
  * Screenshots attached to an idea are committed to a side branch of the repo (kban-attachments),
@@ -42,9 +43,5 @@ export async function uploadImages(token: string, full: string, files: Upload[])
   return out;
 }
 
-export async function readImage(token: string, full: string, name: string) {
-  if (!/^[\w.-]+\.(jpg|png|webp|gif|heic)$/.test(name)) throw new Error("不正なファイル名です");
-  const [owner, repo] = full.split("/");
-  const { data } = await gh(token).repos.getContent({ owner, repo, ref: ATTACH_BRANCH, path: `attachments/${name}`, mediaType: { format: "raw" } });
-  return Buffer.from(data as unknown as ArrayBuffer);
-}
+/** 画像のバイト列(読み方は lib/image.ts)。 */
+export const readImage = (token: string, full: string, name: string) => readImageWith(gh(token), full, name);
