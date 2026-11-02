@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { splitIdea, joinIdea, imageCount } from "./idea.ts";
+import { splitIdea, joinIdea, imageCount, replaceImage, imageNames } from "./idea.ts";
 import { readImageWith, sniffImageType } from "./image.ts";
 
 const md = "![スクリーンショット](https://github.com/ktrips/kban/blob/kban-attachments/attachments/a-1.jpg?raw=true)";
@@ -31,4 +31,14 @@ test("sniffImageType reads the real format from the bytes", () => {
   assert.equal(sniffImageType(Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBPVP8 ")])), "image/webp");
   assert.equal(sniffImageType(Buffer.concat([Buffer.alloc(4), Buffer.from("ftypheic"), Buffer.alloc(4)])), "image/heic");
   assert.equal(sniffImageType(Buffer.from("hello world!")), null);
+});
+
+test("replaceImage points one attachment at its copy in the new repo", () => {
+  const a = "![スクリーンショット](https://github.com/ktrips/kfit/blob/kban-attachments/attachments/a-1.jpg?raw=true)";
+  const b = "![スクリーンショット](https://github.com/ktrips/kfit/blob/kban-attachments/attachments/b-2.png?raw=true)";
+  const idea = `メモ\n\n${a}\n\n${b}`;
+  assert.deepEqual(imageNames(idea), ["a-1.jpg", "b-2.png"]);
+  const moved = "![スクリーンショット](https://github.com/ktrips/kmap/blob/kban-attachments/attachments/new-1.jpg?raw=true)";
+  assert.equal(replaceImage(idea, "a-1.jpg", moved), `メモ\n\n${moved}\n\n${b}`);
+  assert.equal(replaceImage(idea, "zzz.jpg", moved), idea);
 });

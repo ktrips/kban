@@ -64,6 +64,12 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   /** スプリント(週)に入れる / "" で外す */
   const setSprint = (c: Card, w: string) => c.sprint === w ? Promise.resolve()
     : patch(c, { sprint: w }, w ? `${weekLabel(w)}のスプリントに入れました` : "スプリントから外しました");
+  /** カードを別のリポジトリへ移す */
+  const moveRepo = (c: Card, to: string) => run(String(c.number), "move", async () => {
+    const r = await api<{ repo: string; number: number }>(`${base}/cards/${c.number}/move`, "POST", { to });
+    setOpenNo(null);
+    toast(`${to.split("/")[1]} に移しました(#${r.number})`);
+  }, "");
   const reorder = (c: Card, to: number) => {
     const list = by[c.stage].filter((x) => x.number !== c.number);
     list.splice(Math.max(0, Math.min(to, list.length)), 0, c);
@@ -230,7 +236,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
       </div></div>
 
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
@@ -276,7 +282,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+function Sheet({ repos, moveRepo, local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  repos: RepoSettings[]; moveRepo: (c: Card, to: string) => Promise<void>;
   local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
@@ -373,6 +380,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
         {!canEdit && <p className="note">このボードは見るだけの権限です。</p>}
         <div className="section act">{action}</div>
         <div className="section"><h3>進め方</h3>{checklist("steps", "まだありません。AI で作るか、下の欄に1行ずつ書きます")}</div>
+        <RepoField c={c} repos={repos} busy={busy} moveRepo={moveRepo} />
         <div className="row3">
           <div className="field"><label htmlFor="stg">工程</label><select id="stg" value={c.stage} disabled={!!busy} onChange={(e) => move(c, e.target.value as StageId)}>{STAGES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
           <div className="field"><label htmlFor="size">サイズ</label><select id="size" value={c.size} disabled={!!busy} onChange={(e) => patch(c, { size: e.target.value as Size })}><option value="">未定</option><option value="S">S 半日</option><option value="M">M 1〜2日</option><option value="L">L 3日〜</option></select></div>
@@ -439,8 +447,8 @@ function SprintField({ c, all, weekLimit, busy, setSprint }: { c: Card; all: Car
  * ボード画面(全リポジトリ)からタスクを押したとき、その画面の上でタスク詳細を開く。
  * 操作はリポジトリ画面(RepoBoard)と同じ API で、カードのリポジトリに対して行う。
  */
-export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekLimit, reload, toast, onClose }: {
-  boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; budget?: number; weekLimit?: number;
+export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, budget, weekLimit, reload, toast, onClose }: {
+  repos: RepoSettings[]; boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; budget?: number; weekLimit?: number;
   reload: () => Promise<void>; toast: (m: string) => void; onClose: () => void;
 }) {
   const [busy, setBusy] = useState<Record<string, string>>({});
@@ -480,6 +488,11 @@ export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekL
     } catch (e) { toast((e as Error).message); }
     finally { setBusy((b) => { const n = { ...b }; delete n[x.number]; return n; }); }
   }
+  const moveRepo = (x: Card, to: string) => run(String(x.number), "move", async () => {
+    const r = await api<{ repo: string; number: number }>(`${base}/cards/${x.number}/move`, "POST", { to });
+    onClose();
+    toast(`${to.split("/")[1]} に移しました(#${r.number})`);
+  }, "");
   const complete = (x: Card, summary: string, followups?: string[]) =>
     run(String(x.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${x.number}/complete`, "POST", { summary, followups });
@@ -488,9 +501,26 @@ export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekL
 
   return (
     <>
-      {c && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
+      {c && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
         c={c} all={cards} busy={busy[c.number]} onClose={onClose} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
     </>
+  );
+}
+
+/** カードのリポジトリを変える。移せるのは「バックログ」「次にやる」のカードだけ(同じオーナーのリポジトリへ) */
+function RepoField({ c, repos, busy, moveRepo }: { c: Card; repos: RepoSettings[]; busy?: string; moveRepo: (c: Card, to: string) => Promise<void> }) {
+  const [to, setTo] = useState(c.repo);
+  const movable = c.stage === "backlog" || c.stage === "ready";
+  return (
+    <div className="field"><label htmlFor="rp">リポジトリ</label>
+      <div className="btns">
+        <select id="rp" value={to} disabled={!!busy || !movable} onChange={(e) => setTo(e.target.value)} style={{ flex: 1, minWidth: 0 }}>
+          {repos.map((r) => <option key={r.full} value={r.full}>{r.name}({r.full})</option>)}
+        </select>
+        <button type="button" className="btn" disabled={!!busy || !movable || to === c.repo} onClick={() => { if (confirm(`このカードを ${to} に移します。Issue 番号は移し先の新しい番号になります。`)) moveRepo(c, to); }}>{busy === "move" ? "移動中…" : "移す"}</button>
+      </div>
+      <span className="note">{movable ? "GitHub の Issue ごと移します(履歴・コメント・画像も引き継ぎます。前提は外れます)" : "移せるのは「バックログ」「次にやる」のカードだけです(進行中は PR などがあるため)"}</span>
+    </div>
   );
 }
