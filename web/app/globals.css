@@ -108,7 +108,7 @@ h1{font-size:15px;margin:0}
 .wip{color:var(--bad)!important;font-weight:700}
 
 .board-scroll{overflow-x:auto;padding-bottom:6px}
-.board{display:grid;grid-auto-flow:column;grid-template-columns:minmax(300px,1.35fr);grid-auto-columns:minmax(240px,1fr);gap:10px;min-width:max-content}
+.board{display:grid;grid-auto-flow:column;grid-template-columns:minmax(220px,1fr);grid-auto-columns:minmax(180px,1fr);gap:8px;min-width:max-content}
 .lane{display:flex;flex-direction:column;gap:8px;min-width:0;background:var(--soft);border-radius:12px;padding:8px;min-height:180px}
 .lane.drop{outline:2px dashed var(--c);outline-offset:-2px}
 .lane h2{margin:0;font-size:13px;display:flex;align-items:center;gap:8px;padding:2px 4px 4px;border-bottom:2px solid var(--c)}
