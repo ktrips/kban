@@ -177,7 +177,9 @@ h1{font-size:15px;margin:0}
 .add.quick{flex-direction:column;align-items:stretch}
 .add.quick textarea{width:100%;border:0;background:transparent;padding:6px 8px;font-size:16px;resize:vertical;min-height:52px;font-family:inherit}
 .add.quick textarea:focus{outline:none}
-.add.quick .row{display:flex;gap:8px;align-items:center}
+.add.quick .row{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;width:100%;min-width:0}
+.add.quick .row .btn{flex:none;padding:6px 12px;white-space:nowrap}
+.add-repo{flex:1 1 0;min-width:0;width:0;padding:6px 8px;font-size:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:inherit;text-overflow:ellipsis}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:0 4px}
 .thumb{position:relative;display:inline-block}
 .thumb img{height:72px;border-radius:8px;border:1px solid var(--line);display:block}

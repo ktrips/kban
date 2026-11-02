@@ -17,7 +17,8 @@ async function shrink(f: File): Promise<File> {
 }
 
 /** バックログへの追加欄: メモ + スクリーンショット(選ぶ/貼り付け/ドロップ)。 */
-export function QuickAdd({ placeholder, busy, onAdd }: { placeholder: string; busy: boolean; onAdd: (memo: string, files: File[]) => Promise<void> }) {
+/** lead: 1行目(📷・追加の左)に置くもの。ボード画面では追加先のリポジトリの選択。 */
+export function QuickAdd({ placeholder, busy, onAdd, lead }: { placeholder: string; busy: boolean; onAdd: (memo: string, files: File[]) => Promise<void>; lead?: React.ReactNode }) {
   const [memo, setMemo] = useState("");
   const [files, setFiles] = useState<{ file: File; url: string }[]>([]);
   const pick = useRef<HTMLInputElement>(null);
@@ -49,9 +50,10 @@ export function QuickAdd({ placeholder, busy, onAdd }: { placeholder: string; bu
       </div>}
       <div className="row">
         <input ref={pick} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-        <button type="button" className="btn" onClick={() => pick.current?.click()}>📷 スクリーンショット</button>
-        <div className="spacer" />
-        <button className="btn primary" type="submit" disabled={busy || (!memo.trim() && !files.length)}>{busy ? "追加中…" : "バックログに追加"}</button>
+        {lead}
+        {!lead && <div className="spacer" />}
+        <button type="button" className="btn" onClick={() => pick.current?.click()} aria-label="スクリーンショットを追加" title="スクリーンショットを追加">📷{files.length ? ` ${files.length}` : ""}</button>
+        <button className="btn primary" type="submit" disabled={busy || (!memo.trim() && !files.length)} title="バックログに追加">{busy ? "追加中…" : "追加"}</button>
       </div>
     </form>
   );
