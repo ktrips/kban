@@ -6,6 +6,7 @@ import type { RepoSettings, Role } from "@/lib/store";
 import { MonthMeter, WindowMeters } from "./Usage";
 import { ClaudeLink } from "./ClaudeLink";
 import { SprintChip } from "./Sprint";
+import { BoardSprint } from "./BoardSprint";
 import { LimitsChips } from "./Limits";
 import type { ClaudeLimits } from "@/lib/limits";
 
@@ -39,6 +40,8 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         {role === "owner" && <button className="btn small" onClick={() => setSheet("settings")}>ボード設定</button>}
       </header>
       {data.failed.length > 0 && <div className="banner">読み込めなかったリポジトリ: {data.failed.join("、")}(GitHub の権限を確認してください)</div>}
+
+      <BoardSprint data={data} reload={reload} toast={toast} />
 
       <div className="home-grid">
         {board.repos.map((r) => {

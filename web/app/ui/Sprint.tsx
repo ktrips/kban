@@ -75,7 +75,7 @@ export function SprintChip({ cards, limit, claude }: { cards: Card[]; limit?: nu
   if (!l.cards.length && !limit) return null;
   return (
     <div className={`chip ${l.over ? "wait" : ""}`} title="今週のスプリントの「これから使う見込み+使用済み」。上限はボード設定で入れた値">
-      今週のスプリント {l.cards.length} 件{l.totalPct !== undefined ? ` · 上限の ${l.totalPct}%` : ` · 見込み ${fmtTokens(l.planned)}`}
+      今週のスプリント {l.cards.length} 件{l.totalPct !== undefined ? ` · 上限の ${l.totalPct}%` : ` · 見込み ${fmtTokens(l.planned)}`}{l.over ? " · 超過しそう" : ""}
     </div>
   );
 }
