@@ -121,14 +121,16 @@ h1{font-size:15px;margin:0}
   .lane{display:none;background:transparent;padding:0}
   .lane.active{display:flex}
 }
-.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:9px 10px 8px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0;position:relative}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:3px;font-size:13px;cursor:pointer;min-width:0;position:relative}
 .card:hover{border-color:var(--muted);border-left-color:var(--c)}
 .card.dragover{box-shadow:0 -3px 0 var(--accent)}
 .card .top{display:flex;gap:8px;align-items:flex-start}
 .card .rank{font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:22px;padding-top:1px}
 .card .rank.first{color:var(--accent);font-weight:700}
-.card .t{font-weight:700;overflow-wrap:anywhere;flex:1;min-width:0}
-.card .ord{display:flex;flex-direction:column;gap:2px}
+.card .t{font-weight:600;overflow-wrap:anywhere;flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .meta{gap:4px}
+.card .meta .chip{font-size:10.5px;padding:0 6px}
+.card .ord{display:flex;gap:2px}
 .card .why{font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}
 .card .next{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 

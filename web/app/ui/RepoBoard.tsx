@@ -267,10 +267,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
         {bl.length ? <span className="chip wait" title={bl.map((x) => x.title).join("、")}>前提待ち {bl.length}</span> : c.parallel && ord ? <span className="chip par">並行可</span> : null}
         <span className="chip mono">#{c.number}</span>
       </div>
-      {c.reason && ord && <div className="why">{c.reason}</div>}
       {!ord && c.stage !== "done" && <div className="prog"><i style={{ width: `${pct}%`, background: "var(--c)" }} /></div>}
-      {edit && c.stage === "backlog" && <div className="next" onClick={stop}><button className="btn small" disabled={!!busy || planning(c)} onClick={onPlan}>{planLabel(c, busy)}</button></div>}
-      {edit && c.stage === "ready" && <div className="next"><button className="btn small primary">AIに渡す</button></div>}
+      {c.stage === "backlog" && (busy === "plan" || planning(c)) ? <div className="note" onClick={stop}>{planLabel(c, busy)}</div> : null}
       {busy && busy !== "plan" && <div className="note">更新中…</div>}
     </article>
   );
