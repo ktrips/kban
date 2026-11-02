@@ -1,12 +1,25 @@
 import { access, bad, repoOn } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
-import { listCards, updateCard, requestFix, requestPlan } from "@/lib/github";
+import { listCards, updateCard, requestFix, requestPlan, requestPrioritize, latestRun, PRIORITIZE_WORKFLOW } from "@/lib/github";
 import { makePlan, prioritize, makeFix } from "@/lib/ai";
 import { ACTIVE } from "@/lib/stages";
 
 type P = Ctx<{ id: string; owner: string; repo: string }>;
 
-/** body: { action: "plan" | "prioritize" | "fix", number?, feedback? }。plan は Actions に頼めたら { queued: true } */
+/** 「AIで優先順位」の Actions のいちばん新しい実行(失敗を画面に出すため) */
+export const GET = async (_: Request, { params }: P) => {
+  const { id, owner, repo } = await params;
+  return handle(async () => {
+    const a = await access(id, "view");
+    return { run: await latestRun(a.token, repoOn(a, `${owner}/${repo}`).full, PRIORITIZE_WORKFLOW) };
+  });
+};
+
+/**
+ * body: { action: "plan" | "prioritize" | "dismiss" | "fix", number?, feedback? }。
+ * plan / prioritize は Actions(Claude の契約)に頼めたら { queued: true }。結果はワークフローが Issue に書く。
+ * dismiss は「AIで優先順位」の提案の印を消す
+ */
 export const POST = async (req: Request, { params }: P) => {
   const { id, owner, repo } = await params;
   return handle(async () => {
@@ -18,7 +31,15 @@ export const POST = async (req: Request, { params }: P) => {
     if (action === "prioritize") {
       const pool = cards.filter((c) => c.stage === "backlog" || c.stage === "ready").sort((x, y) => x.rank - y.rank);
       if (pool.length < 2) throw bad("並べ替えるには2件以上必要です");
+      if (await requestPrioritize(a.token, r.full)) return { queued: true };
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw bad("このリポジトリに kban-prioritize.yml がありません。「リポジトリの設定 → Claude Code 連携」で「ワークフローを更新する PR を作る」を押し、PR をマージしてください");
+      }
       return { items: await prioritize(r, pool, cards.filter((c) => ACTIVE.includes(c.stage))) };
+    }
+    if (action === "dismiss") {
+      for (const c of cards.filter((c) => c.proposal)) await updateCard(a.token, r.full, c.number, { proposal: "" });
+      return { ok: true };
     }
     const card = cards.find((c) => c.number === Number(number));
     if (!card) throw bad("カードが見つかりません");

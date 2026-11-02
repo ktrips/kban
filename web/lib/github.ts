@@ -30,6 +30,8 @@ export type Card = CardBody & {
   planning?: number;
   /** スプリント(週)の月曜 YYYY-MM-DD。lib/sprint.ts */
   sprint?: string;
+  /** 「AIで優先順位」の提案(lib/priority.ts)。採用・取り消しで消す */
+  proposal?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -133,6 +135,7 @@ export async function listCards(token: string, repoInfo: RepoSettings): Promise<
         runner: m.runner,
         planning: m.planning,
         sprint: m.sprint,
+        proposal: m.proposal,
         usage: m.usage,
         url: i.html_url,
         createdAt: i.created_at,
@@ -150,7 +153,7 @@ export async function createCard(token: string, full: string, title: string, tar
   return data.number;
 }
 
-export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner" | "planning" | "sprint">> & {
+export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" | "parallel" | "runner" | "planning" | "sprint" | "proposal">> & {
   title?: string; stage?: StageId; size?: Size; target?: Target;
 };
 
@@ -160,7 +163,7 @@ export async function updateCard(token: string, full: string, number: number, pa
   const update: Parameters<Octokit["issues"]["update"]>[0] = { owner, repo, issue_number: number };
   if (patch.title) update.title = patch.title.slice(0, 120);
 
-  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner", "planning", "sprint"] as const;
+  const bodyKeys = ["idea", "spec", "steps", "criteria", "dependsOn", "prompt", "rank", "reason", "parallel", "runner", "planning", "sprint", "proposal"] as const;
   if (bodyKeys.some((k) => patch[k] !== undefined)) {
     const cur = parseBody(issue.body);
     const marks = parseMarkers(issue.body);
@@ -170,7 +173,7 @@ export async function updateCard(token: string, full: string, number: number, pa
         idea: pick(patch.idea, cur.idea), spec: pick(patch.spec, cur.spec), steps: pick(patch.steps, cur.steps),
         criteria: pick(patch.criteria, cur.criteria), dependsOn: pick(patch.dependsOn, cur.dependsOn), prompt: pick(patch.prompt, cur.prompt),
       },
-      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner), planning: pick(patch.planning, marks.planning), sprint: pick(patch.sprint, marks.sprint) },
+      { ...marks, rank: pick(patch.rank, marks.rank), reason: pick(patch.reason, marks.reason), parallel: pick(patch.parallel, marks.parallel), runner: pick(patch.runner, marks.runner), planning: pick(patch.planning, marks.planning), sprint: pick(patch.sprint, marks.sprint), proposal: pick(patch.proposal, marks.proposal) },
     );
   }
 
@@ -231,6 +234,7 @@ export const CLAUDE_SECRETS = ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"] a
 export type ClaudeStatus = {
   workflows: boolean; // kban-claude.yml がデフォルトブランチにある
   plan: boolean; // kban-plan.yml(「AIで進め方を作る」を Claude Code で行う)がある
+  prioritize: boolean; // kban-prioritize.yml(「AIで優先順位」を Claude Code で行う)がある
   secret: string | null | "unknown"; // 登録済みの認証の名前。権限がなく調べられないとき "unknown"
   pr?: string; // 連携を入れる PR が開いている
 };
@@ -240,15 +244,17 @@ export async function claudeStatus(token: string, full: string): Promise<ClaudeS
   const o = gh(token);
   const exists = (path: string, ref?: string) =>
     o.repos.getContent({ owner, repo, path, ref }).then(() => true, (e) => { if ((e as { status?: number }).status === 404) return false; throw e; });
-  const [workflows, plan, secrets, prs] = await Promise.all([
+  const [workflows, plan, prioritize, secrets, prs] = await Promise.all([
     exists(".github/workflows/kban-claude.yml"),
     exists(".github/workflows/kban-plan.yml"),
+    exists(".github/workflows/kban-prioritize.yml"),
     o.actions.listRepoSecrets({ owner, repo, per_page: 100 }).then((r) => r.data.secrets.map((s) => s.name)).catch(() => null),
     o.pulls.list({ owner, repo, state: "open", head: `${owner}:${SETUP_BRANCH}`, per_page: 1 }).then((r) => r.data).catch(() => []),
   ]);
   return {
     workflows,
     plan,
+    prioritize,
     secret: secrets ? (CLAUDE_SECRETS.find((n) => secrets.includes(n)) ?? null) : "unknown",
     pr: prs[0]?.html_url,
   };
@@ -313,6 +319,36 @@ export async function requestPlan(token: string, full: string, number: number): 
   }
   await updateCard(token, full, number, { planning: Math.floor(Date.now() / 1000) });
   return true;
+}
+
+export const PRIORITIZE_WORKFLOW = "kban-prioritize.yml";
+
+/** 「AIで優先順位」をアプリのリポジトリの Actions(kban-prioritize.yml)で行う。ワークフローがなければ false */
+export async function requestPrioritize(token: string, full: string): Promise<boolean> {
+  const { owner, repo } = split(full);
+  const o = gh(token);
+  const { data: r } = await o.repos.get({ owner, repo });
+  try {
+    await o.actions.createWorkflowDispatch({ owner, repo, workflow_id: PRIORITIZE_WORKFLOW, ref: r.default_branch });
+  } catch (e) {
+    if ((e as { status?: number }).status === 404) return false;
+    throw e;
+  }
+  return true;
+}
+
+export type RunState = { status: string; conclusion: string | null; url: string; createdAt: string } | null;
+/** そのワークフローのいちばん新しい実行(なければ null) */
+export async function latestRun(token: string, full: string, workflow: string): Promise<RunState> {
+  const { owner, repo } = split(full);
+  try {
+    const { data } = await gh(token).actions.listWorkflowRuns({ owner, repo, workflow_id: workflow, per_page: 1 });
+    const r = data.workflow_runs[0];
+    return r ? { status: r.status || "", conclusion: r.conclusion, url: r.html_url, createdAt: r.created_at } : null;
+  } catch (e) {
+    if ((e as { status?: number }).status === 404) return null;
+    throw e;
+  }
 }
 
 /** Store a credential as an Actions secret (encrypted with the repo's public key; kban does not keep the value). */

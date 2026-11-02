@@ -15,6 +15,8 @@ import { touchDrag } from "./touchDrag";
 import { addWeeks, weekLabel, weekOf } from "@/lib/sprint";
 import { estimate, fmtTokens } from "@/lib/usage";
 import type { ClaudeLimits } from "@/lib/limits";
+import { collectProposal } from "@/lib/priority";
+import type { RunState } from "@/lib/github";
 
 /* ---------------- repo board ---------------- */
 /** Actions(kban-plan.yml)の Claude Code が進め方を作っている間。止まった実行で押せなくならないよう 20 分で切る */
@@ -32,6 +34,9 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   const [openNo, setOpenNo] = useState<number | null>(null);
   const [busy, setBusy] = useState<Record<string, string>>({});
   const [proposal, setProposal] = useState<Priority[] | "loading" | null>(null);
+  /** Actions(kban-prioritize.yml)の Claude Code に頼んだ時刻(epoch 秒)。結果は各カードの提案の印として届く */
+  const [waitingSince, setWaitingSince] = useState<number | null>(null);
+  const fromCards = useMemo(() => collectProposal(cards), [cards]);
   const base = `/api/boards/${boardId}/r/${repo.full}`;
 
   const by = useMemo(() => {
@@ -74,10 +79,31 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   const fix = (c: Card, feedback: string) => run(String(c.number), "fix", () => api(`${base}/ai`, "POST", { action: "fix", number: c.number, feedback }), "Claude Code に修正を依頼しました");
   async function prioritize() {
     setProposal("loading");
-    try { setProposal((await api<{ items: Priority[] }>(`${base}/ai`, "POST", { action: "prioritize" })).items); }
-    catch (e) { setProposal(null); toast((e as Error).message); }
+    try {
+      const r = await api<{ items?: Priority[]; queued?: boolean }>(`${base}/ai`, "POST", { action: "prioritize" });
+      if (r.queued) { setProposal(null); setWaitingSince(Math.floor(Date.now() / 1000)); toast("Claude Code(あなたの契約)が優先順位を考えています。1〜2分で提案が出ます"); }
+      else setProposal(r.items || null);
+    } catch (e) { setProposal(null); toast((e as Error).message); }
   }
+  // Actions に頼んだ後: 提案がカードに書かれるか、実行が失敗するまで見に行く
+  useEffect(() => {
+    if (!waitingSince) return;
+    if (fromCards && fromCards[0].ts >= waitingSince - 60) { setWaitingSince(null); return; }
+    const t = setInterval(async () => {
+      await reload();
+      const { run } = await api<{ run: RunState }>(`${base}/ai`).catch(() => ({ run: null as RunState }));
+      if (run && run.status === "completed" && run.conclusion !== "success" && Date.parse(run.createdAt) / 1000 >= waitingSince - 60) {
+        setWaitingSince(null);
+        toast(`優先順位を作れませんでした。Actions の実行ログを確認してください: ${run.url}`);
+      } else if (Date.now() / 1000 - waitingSince > 20 * 60) setWaitingSince(null);
+    }, 8000);
+    return () => clearInterval(t);
+  }, [waitingSince, fromCards, base, reload, toast]);
+  /** カードに書かれた提案の印を消す(採用・取り消しのあと) */
+  const dismissProposal = () => api(`${base}/ai`, "POST", { action: "dismiss" });
+  const shown = Array.isArray(proposal) ? proposal : fromCards;
   async function applyProposal(items: Priority[]) {
+    const stored = !Array.isArray(proposal);
     setProposal(null);
     // backlog and ready keep their own lanes; each lane takes the proposed relative order
     const order = (s: StageId) => items.filter((x) => by[s].some((c) => c.number === x.number));
@@ -86,6 +112,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
         const o = order(s);
         if (o.length) await api(`${base}/order`, "POST", { numbers: o.map((x) => x.number), items: o });
       }
+      if (stored) await dismissProposal();
     }, "提案の順番にしました");
   }
   async function add(memo: string, files: File[]) {
@@ -191,12 +218,13 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
         })}
       </div></div>
 
-      {proposal === "loading" && <div className="proposal"><h1>AIが優先順位を考えています…</h1></div>}
-      {Array.isArray(proposal) && (
+      {(proposal === "loading" || waitingSince) && <div className="proposal"><h1>AIが優先順位を考えています…</h1>{waitingSince && <span className="note">GitHub Actions の Claude Code(あなたの契約)で考えています。1〜2分で提案が出ます</span>}</div>}
+      {shown && !waitingSince && (
         <div className="proposal">
           <div className="btns" style={{ justifyContent: "space-between" }}><h1>AIの提案: この順番で進める</h1>
-            <div className="btns"><button className="btn small primary" onClick={() => applyProposal(proposal)}>この順番にする</button><button className="btn small" onClick={() => setProposal(null)}>やめる</button></div></div>
-          <ol>{proposal.map((x) => {
+            <div className="btns"><button className="btn small primary" disabled={!!busy.order || !canEdit} onClick={() => applyProposal(shown)}>この順番にする</button>
+              <button className="btn small" disabled={!!busy.order || !canEdit} onClick={() => Array.isArray(proposal) ? setProposal(null) : run("order", "order", dismissProposal, "提案を取り消しました")}>やめる</button></div></div>
+          <ol>{shown.map((x) => {
             const c = cards.find((y) => y.number === x.number); if (!c) return null;
             const deps = x.dependsOn.map((n) => cards.find((y) => y.number === n)).filter(Boolean) as Card[];
             return <li key={x.number}><b>{c.title}</b> {x.size && <span className="chip">{x.size}</span>} {x.parallel && <span className="chip par">並行可</span>}
@@ -211,7 +239,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); drop(s.id); }}>
             <h2>{s.name}<span className="n">{by[s.id].length}{"wip" in s ? ` / ${s.wip}` : ""}</span></h2>
             <div className="hint">{s.hint}
-              {s.id === "backlog" && canEdit && <button className="btn icon" disabled={by.backlog.length + by.ready.length < 2 || proposal === "loading"} onClick={prioritize}>AIで優先順位</button>}</div>
+              {s.id === "backlog" && canEdit && <button className="btn icon" disabled={by.backlog.length + by.ready.length < 2 || proposal === "loading" || !!waitingSince} onClick={prioritize}>AIで優先順位</button>}</div>
             {by[s.id].length === 0 && <div className="empty">{s.id === "backlog" ? "上の欄から書き込む" : "まだありません"}</div>}
             {by[s.id].map((c, i) => <Fragment key={c.id}>
               {s.id === "ready" && by.ready.some((x) => x.sprint) && (i === 0 || (by.ready[i - 1].sprint || "") !== (c.sprint || "")) && (

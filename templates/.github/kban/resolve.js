@@ -205,4 +205,87 @@ async function applyPlan({ github, context, core }, n, file) {
   try { await recordUsage({ github, context, core }, file, n); } catch (e) { core.warning(`使用量の記録に失敗: ${e.message}`); }
 }
 
-module.exports = { recordUsage, linkedIssue, prFromSha, moveFromPr, moveIssue, ORDER, planPrompt, applyPlan, parsePlan, renderPlanBody };
+/* ---------------- 「AIで優先順位」(kban-prioritize.yml) ---------------- */
+// 提案は各カードの <!-- kban:proposal=時刻;順番;サイズ;並行可(1/0);前提(番号,番号);理由 --> に書く。
+// kban(web/lib/priority.ts)がこれを集めて「AIの提案」として出し、「この順番にする」で確定・「やめる」で消す
+const POOL = ["kban:backlog", "kban:ready"];
+const ACTIVE_LABELS = ["kban:building", "kban:testing", "kban:deploying", "kban:verifying"];
+const labelsOf = (i) => i.labels.map((l) => (typeof l === "string" ? l : l.name));
+
+async function openCards({ github, context }) {
+  const { owner, repo } = context.repo;
+  const all = await github.paginate(github.rest.issues.listForRepo, { owner, repo, labels: "kban", state: "open", per_page: 100 });
+  return all.filter((i) => !i.pull_request);
+}
+const rankOf = (i) => { const r = Number(markerOf(i.body, "rank")); return Number.isFinite(r) && markerOf(i.body, "rank") !== undefined ? r : RANK_UNSET + i.number; };
+const poolOf = (cards) => cards.filter((i) => labelsOf(i).some((l) => POOL.includes(l))).sort((a, b) => rankOf(a) - rankOf(b));
+
+/** Claude Code に渡す指示(web/lib/ai.ts の prioritize と同じ内容に、コードを読む指示を足したもの) */
+async function prioritizePrompt(ctx) {
+  const { owner, repo } = ctx.context.repo;
+  const [cards, { data: info }] = await Promise.all([openCards(ctx), ctx.github.rest.repos.get({ owner, repo })]);
+  const pool = poolOf(cards);
+  if (pool.length < 2) throw new Error("並べ替えるには、バックログと「次にやる」に2件以上必要です");
+  const active = cards.filter((i) => labelsOf(i).some((l) => ACTIVE_LABELS.includes(l))).map((i) => i.title);
+  let target;
+  try { target = JSON.parse(require("fs").readFileSync(".github/kban/config.json", "utf8")).target; } catch { /* なし */ }
+  return `あなたは個人開発者のプロダクトマネージャーです。作業ディレクトリはこのリポジトリです。必要ならコードを Read / Glob / Grep で確認し(変更はしない)、次のバックログについて何から着手すべきかを決めてください。
+リポジトリ: ${owner}/${repo}(${TARGET_TEXT[target] || TARGET_TEXT.web})${info.description ? `\n概要: ${info.description}` : ""}
+いま進行中: ${active.join(" / ") || "なし"}
+基準: ユーザーへの価値が大きい、小さく早く出せる、他の作業の前提になるものを先に。同時に進めても同じ画面やファイルを触らないものは並行可能にする。
+
+バックログ(#番号: タイトル — 内容):
+${pool.map((i) => `#${i.number}: ${i.title} — ${ideaOf(i.body).slice(0, 160)}`).join("\n")}
+
+最後の返答は JSON だけにする(コードフェンス不要・前後に説明を書かない)。全件を含め、先にやる順に並べる:
+{"items":[{"number":12,"size":"S|M|L","reason":"なぜこの順番か(40字以内)","dependsOn":[先に終わっている必要がある番号],"parallel":true}]}`;
+}
+
+/** 提案の印の値。";" 区切りで、理由は最後(";" を含んでもよい) */
+function proposalMarker(ts, order, x) {
+  const reason = String(x.reason || "").replace(/-->/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+  return `${ts};${order};${x.size || ""};${x.parallel ? 1 : 0};${(x.dependsOn || []).join(",")};${reason}`;
+}
+
+/** kban-prioritize.yml の結果(claude -p --output-format json)を、各カードの提案の印として書く */
+async function applyPriorities(ctx, file) {
+  const fs = require("fs");
+  const { github, context, core } = ctx;
+  const { owner, repo } = context.repo;
+  const cards = await openCards(ctx);
+  const pool = poolOf(cards);
+  const nums = new Set(pool.map((i) => i.number));
+  const activeNums = new Set(cards.filter((i) => labelsOf(i).some((l) => ACTIVE_LABELS.includes(l))).map((i) => i.number));
+  let items;
+  try {
+    if (!file || !fs.existsSync(file)) throw new Error("Claude Code が結果を返しませんでした");
+    const out = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (out.is_error) throw new Error(String(out.result || out.subtype || "Claude Code がエラーで終わりました"));
+    const text = String(out.result || "");
+    const v = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    items = (Array.isArray(v.items) ? v.items : [])
+      .filter((x) => nums.has(Number(x.number)))
+      .map((x) => ({
+        number: Number(x.number),
+        size: ["S", "M", "L"].includes(String(x.size)) ? String(x.size) : "",
+        reason: String(x.reason || ""),
+        dependsOn: (Array.isArray(x.dependsOn) ? x.dependsOn : []).map(Number).filter((n) => n !== Number(x.number) && (nums.has(n) || activeNums.has(n))),
+        parallel: x.parallel === true,
+      }));
+    if (!items.length) throw new Error("提案に、バックログのカードが1件も含まれていませんでした");
+  } catch (e) {
+    return core.setFailed(`優先順位を作れませんでした: ${e.message}`);
+  }
+  const seen = new Set();
+  items = items.filter((x) => !seen.has(x.number) && seen.add(x.number));
+  for (const i of pool) if (!seen.has(i.number)) items.push({ number: i.number, size: "", reason: "", dependsOn: [], parallel: false }); // 漏れたものは末尾
+  const ts = Math.floor(Date.now() / 1000);
+  for (const [k, x] of items.entries()) {
+    const issue = pool.find((i) => i.number === x.number);
+    const body = (issue.body || "").replace(/\n?<!-- kban:proposal=.*? -->/g, "") + `\n<!-- kban:proposal=${proposalMarker(ts, k + 1, x)} -->`;
+    await github.rest.issues.update({ owner, repo, issue_number: x.number, body });
+  }
+  core.info(`${items.length} 件に優先順位の提案を書きました`);
+}
+
+module.exports = { recordUsage, linkedIssue, prFromSha, moveFromPr, moveIssue, ORDER, planPrompt, applyPlan, parsePlan, renderPlanBody, prioritizePrompt, applyPriorities, proposalMarker };
