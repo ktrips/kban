@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, SI, stageName, cssVar, ordered, sortStage, blockersOf, progress, StagesBar } from "./common";
 import type { Size } from "@/lib/stages";
 import type { Priority } from "@/lib/ai";
@@ -34,7 +34,13 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   const [proposal, setProposal] = useState<Priority[] | "loading" | null>(null);
   const base = `/api/boards/${boardId}/r/${repo.full}`;
 
-  const by = useMemo(() => Object.fromEntries(STAGES.map((s) => [s.id, sortStage(cards.filter((c) => c.stage === s.id), s.id)])) as Record<StageId, Card[]>, [cards]);
+  const by = useMemo(() => {
+    const m = Object.fromEntries(STAGES.map((s) => [s.id, sortStage(cards.filter((c) => c.stage === s.id), s.id)])) as Record<StageId, Card[]>;
+    // 「次にやる」は、スプリント(週)ごとに並べる。週に入れていないものは最後(未割り当て)。順位は各グループの中で保つ
+    const wk = (c: Card) => c.sprint || "9999-99-99";
+    m.ready = m.ready.map((c, i) => [c, i] as const).sort((a, b) => wk(a[0]).localeCompare(wk(b[0])) || a[1] - b[1]).map(([c]) => c);
+    return m;
+  }, [cards]);
   const act = cards.filter((c) => ACTIVE.includes(c.stage));
   const waiting = act.filter((c) => blockersOf(c, cards).length).length;
   const next = by.ready[0] || by.backlog[0];
@@ -208,9 +214,16 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
             <div className="hint">{s.hint}
               {s.id === "backlog" && canEdit && <button className="btn icon" disabled={by.backlog.length + by.ready.length < 2 || proposal === "loading"} onClick={prioritize}>AIで優先順位</button>}</div>
             {by[s.id].length === 0 && <div className="empty">{s.id === "backlog" ? "上の欄から書き込む" : "まだありません"}</div>}
-            {by[s.id].map((c, i) => <CardView key={c.id} canEdit={canEdit} c={c} i={i} n={by[s.id].length} all={cards} busy={busy[c.number]}
+            {by[s.id].map((c, i) => <Fragment key={c.id}>
+              {s.id === "ready" && by.ready.some((x) => x.sprint) && (i === 0 || (by.ready[i - 1].sprint || "") !== (c.sprint || "")) && (
+                <div className="note" style={{ margin: "8px 0 4px", fontWeight: 600 }}>
+                  {c.sprint ? `${weekLabel(c.sprint)}のスプリント` : "未割り当て"}({by.ready.filter((x) => (x.sprint || "") === (c.sprint || "")).length})
+                </div>
+              )}
+              <CardView key={c.id} canEdit={canEdit} c={c} i={i} n={by[s.id].length} all={cards} busy={busy[c.number]}
               onOpen={() => setOpenNo(c.number)} onPlan={() => plan(c)} onMove={(d) => reorder(c, i + d)}
-              onDragStart={() => setDragNo(c.number)} onDropOn={() => drop(s.id, c.number)} onTouchDrop={(t) => touchDrop(c, t)} />)}
+              onDragStart={() => setDragNo(c.number)} onDropOn={() => drop(s.id, c.number)} onTouchDrop={(t) => touchDrop(c, t)} />
+            </Fragment>)}
           </section>
         ))}
       </div></div>
