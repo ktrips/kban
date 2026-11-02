@@ -49,6 +49,8 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が完了にして、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
 
+- スプリントの自動繰り越し: 週が過ぎても完了でないカード(`lib/sprint.ts rolloverTargets`)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
+
 ## Claude Code 連携(リポジトリ側)
 
 - `templates/` が元。Firebase の build は `web/` だけでも動くよう、`web/scripts/sync-templates.mjs`(`prebuild`)が `web/lib/templates.generated.ts` に埋め込む。**templates を変えたら `npm run sync-templates` してコミット**(テストが古さを検出)

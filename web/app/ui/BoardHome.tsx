@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, blockersOf, progress, StagesBar, tLabel } from "./common";
 import type { RepoSettings, Role } from "@/lib/store";
 import { ClaudeLink } from "./ClaudeLink";
+import { useRollover } from "./useRollover";
 import { BoardAdd, BoardSprint } from "./BoardSprint";
 import { BoardCardSheet } from "./RepoBoard";
 import type { ClaudeLimits } from "@/lib/limits";
@@ -16,6 +17,7 @@ export type BoardData = {
 /** One board: its repositories with progress, everything in flight across them, and sharing. */
 export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const { board, cards, canEdit, role } = data;
+  useRollover(board.id, cards, canEdit, reload, toast);
   const [sheet, setSheet] = useState<null | "pick" | "share" | "settings" | { repo: string }>(null);
   const [openCard, setOpenCard] = useState<{ repo: string; number: number } | null>(null);
   const active = sortStage(cards.filter((c) => ACTIVE.includes(c.stage)), "building");
