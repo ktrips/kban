@@ -21,11 +21,11 @@ import type { ClaudeLimits } from "@/lib/limits";
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  budget?: number; weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  budget?: number; weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; isOwner?: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, isOwner, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
   const [week, setWeek] = useState(() => weekOf());
@@ -114,6 +114,13 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
     } catch (e) { toast((e as Error).message); }
     finally { setBusy((b) => { const n = { ...b }; delete n[c.number]; return n; }); }
   }
+  /** 別リポジトリへ移す / 新しいリポジトリにする */
+  const transfer = (c: Card, body: { to: string } | { create: { name: string; description?: string; private: boolean } }) =>
+    run(String(c.number), "move", async () => {
+      const r = await api<{ setupPr?: string }>(`${base}/cards/${c.number}/move`, "POST", body);
+      setOpenNo(null);
+      toast("create" in body ? `新しいリポジトリを作りました${r.setupPr ? "(連携 PR も作成済み)" : ""}` : "別のリポジトリに移しました");
+    }, "");
   const complete = (c: Card, summary: string, followups?: string[]) =>
     run(String(c.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${c.number}/complete`, "POST", { summary, followups });
@@ -228,7 +235,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
       </div></div>
 
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {open && <Sheet transfer={transfer} otherRepos={repos.filter((r) => r.full !== repo.full)} isOwner={isOwner} imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
@@ -273,7 +280,8 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+function Sheet({ transfer, otherRepos, isOwner, local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  transfer?: (c: Card, body: { to: string } | { create: { name: string; description?: string; private: boolean } }) => Promise<void>; otherRepos?: RepoSettings[]; isOwner?: boolean;
   local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
@@ -368,7 +376,8 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
         <div className="meta"><span className="stagepill" style={cssVar(c.stage)}>{stageName(c.stage)}</span><span className="chip mono">#{c.number}</span><span className="note">進み具合 {Math.round(progress(c) * 100)}%</span></div>
         <fieldset disabled={!canEdit} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
         {!canEdit && <p className="note">このボードは見るだけの権限です。</p>}
-        <div className="section act">{action}</div>
+        <div className="section act">{action}
+      {canEdit && transfer && (c.stage === "backlog" || c.stage === "ready") && <MovePanel c={c} busy={busy} others={otherRepos || []} isOwner={!!isOwner} transfer={transfer} />}</div>
         <div className="section"><h3>進め方</h3>{checklist("steps", "まだありません。AI で作るか、下の欄に1行ずつ書きます")}</div>
         <div className="row3">
           <div className="field"><label htmlFor="stg">工程</label><select id="stg" value={c.stage} disabled={!!busy} onChange={(e) => move(c, e.target.value as StageId)}>{STAGES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
@@ -489,5 +498,28 @@ export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekL
         c={c} all={cards} busy={busy[c.number]} onClose={onClose} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
     </>
+  );
+}
+
+/** アイデアが育ったとき: 別のリポジトリのタスクにする / 新しいリポジトリにする */
+function MovePanel({ c, busy, others, isOwner, transfer }: {
+  c: Card; busy?: string; others: RepoSettings[]; isOwner: boolean;
+  transfer: (c: Card, body: { to: string } | { create: { name: string; description?: string; private: boolean } }) => Promise<void>;
+}) {
+  const [to, setTo] = useState("");
+  const [name, setName] = useState("");
+  const [pub, setPub] = useState(false);
+  return (
+    <details className="move">
+      <summary>別のリポジトリにする</summary>
+      {others.length > 0 && <div className="field"><label htmlFor="mvto">既存のリポジトリのタスクにする</label>
+        <select id="mvto" value={to} onChange={(e) => setTo(e.target.value)}><option value="">選ぶ…</option>{others.map((r) => <option key={r.full} value={r.full}>{r.name}</option>)}</select>
+        <div className="btns"><button className="btn" disabled={!!busy || !to} onClick={() => transfer(c, { to })}>移す</button></div></div>}
+      {isOwner && <div className="field"><label htmlFor="mvnew">新しいリポジトリを作る(このカードが最初のタスク)</label>
+        <input id="mvnew" value={name} onChange={(e) => setName(e.target.value)} placeholder="例: my-app" />
+        <label><input type="checkbox" checked={pub} onChange={(e) => setPub(e.target.checked)} /> 公開する(既定は非公開)</label>
+        <div className="btns"><button className="btn primary" disabled={!!busy || !name.trim()} onClick={() => transfer(c, { create: { name: name.trim(), description: c.title, private: !pub } })}>作成して移す</button></div>
+        <p className="note">作成後、ボードに追加し、Claude Code 連携の PR も作ります。</p></div>}
+    </details>
   );
 }

@@ -333,3 +333,33 @@ export async function setClaudeSecret(token: string, full: string, name: string,
     await o.actions.deleteRepoSecret({ owner, repo, secret_name: other }).catch((e) => { if ((e as { status?: number }).status !== 404) throw e; });
   }
 }
+
+/** カード(Issue)を同じアカウントの別リポジトリへ移す(GraphQL transferIssue)。ラベルは移動先に作ってから移す。番号は変わる */
+export async function transferCard(token: string, full: string, number: number, destFull: string): Promise<{ number: number; url: string }> {
+  const { owner, repo } = split(full);
+  const dest = split(destFull);
+  await ensureLabels(token, destFull);
+  const { data: issue } = await gh(token).issues.get({ owner, repo, issue_number: number });
+  const { data: d } = await gh(token).repos.get({ owner: dest.owner, repo: dest.repo });
+  const r = await gh(token).graphql<{ transferIssue: { issue: { number: number; url: string } } }>(
+    `mutation($issue: ID!, $repo: ID!) { transferIssue(input: { issueId: $issue, repositoryId: $repo }) { issue { number url } } }`,
+    { issue: issue.node_id, repo: d.node_id },
+  );
+  return r.transferIssue.issue;
+}
+
+/** アイデアが育ったとき: 新しいリポジトリを作り、カードをその最初の Issue として移し、kban の連携 PR も用意する */
+export async function graduateCard(
+  token: string, full: string, number: number,
+  opts: { name: string; description?: string; private?: boolean; target: Target; scheme?: string },
+) {
+  const { data: repo } = await gh(token).repos.createForAuthenticatedUser({
+    name: opts.name, description: (opts.description || "").slice(0, 300), private: opts.private ?? true, auto_init: true,
+  });
+  const moved = await transferCard(token, full, number, repo.full_name);
+  let setupPr: string | undefined;
+  try {
+    setupPr = (await installClaude(token, repo.full_name, opts.target, opts.scheme || opts.name.replace(/^./, (c) => c.toUpperCase()))).pr;
+  } catch { /* 連携 PR は後からリポジトリ設定でも作れる */ }
+  return { repo: { full: repo.full_name, name: repo.name, about: repo.description || "" }, card: moved, setupPr };
+}
