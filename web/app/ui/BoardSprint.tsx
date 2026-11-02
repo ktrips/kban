@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, api, stageName, cssVar } from "./common";
+import { MonthMeter, WindowMeters } from "./Usage";
+import { LimitsChips } from "./Limits";
 import { QuickAdd } from "./QuickAdd";
 import type { BoardData } from "./BoardHome";
 import { addWeeks, remaining, sprintLoad, weekLabel, weekOf, weekRange } from "@/lib/sprint";
@@ -76,6 +78,7 @@ export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: 
         {!board.weekTokens && <div className="note">%で見るには、「ボード設定」で週の上限(トークン換算)を入れてください</div>}
         {!limits && week === weekOf() && <div className="note">Claude の実際の使用率を出すには、トップの「Claude の使用率を kban に送る」を設定してください</div>}
         {l.over && <div className="err">タスクを来週に回すか、サイズを小さく分けましょう</div>}
+        <div className="btns"><WindowMeters cards={cards} /><MonthMeter cards={cards} budget={board.budgetTokens} /><LimitsChips limits={limits} /></div>
         {perRepo.length > 0 && <div className="btns">{perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> {x.n} 件 · 約 {fmtTokens(x.t)}</span>)}</div>}
       </div>
 
