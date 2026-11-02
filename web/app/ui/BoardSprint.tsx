@@ -21,7 +21,7 @@ const KEY = "kban:addRepo";
  * ボード画面のスプリント。全リポジトリのカードを、リポジトリのタグ付きで一覧し、その週に入れる/外す。
  * アイデアの追加(リポジトリを選ぶ)と、その週の Claude の使用量(超過しそうか)もここで見る。
  */
-export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void }) {
+export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void; onOpen: (c: Card) => void }) {
   const { board, cards, canEdit, limits } = data;
   const [week, setWeek] = useState(() => weekOf());
   const [tag, setTag] = useState(""); // 候補を絞り込むリポジトリ("" = すべて)
@@ -86,7 +86,7 @@ export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: 
         ? <div className="empty">{canEdit ? "下の候補から「入れる」で、この週のタスクにします" : "この週のタスクはまだありません"}</div>
         : <ul className="sp-list">{inSprint.map((c) => (
             <li key={c.id} style={cssVar(c.stage)} className={c.stage === "done" ? "done" : ""}>
-              <a className="sp-t" href={`#b/${board.id}/${c.repo}`} style={{ color: "inherit", textDecoration: "none" }}><span className="dot" />{c.title}</a>
+              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" />{c.title}</button>
               <Tag full={c.repo} />
               <span className="chip">{stageName(c.stage)}</span>
               {c.size && <span className="chip">{c.size}</span>}
@@ -107,7 +107,7 @@ export function BoardSprint({ data, reload, toast }: { data: BoardData; reload: 
         ? <div className="empty">入れられるカードはありません</div>
         : <ul className="sp-list">{pool.slice(0, 40).map((c) => (
             <li key={c.id} style={cssVar(c.stage)}>
-              <a className="sp-t" href={`#b/${board.id}/${c.repo}`} style={{ color: "inherit", textDecoration: "none" }}><span className="dot" />{c.title}</a>
+              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" />{c.title}</button>
               <Tag full={c.repo} />
               <span className="chip">{stageName(c.stage)}</span>
               {c.sprint && <span className="chip wk">{weekLabel(c.sprint)}</span>}

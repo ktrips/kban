@@ -5,6 +5,7 @@ import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, 
 import type { RepoSettings, Role } from "@/lib/store";
 import { ClaudeLink } from "./ClaudeLink";
 import { BoardAdd, BoardSprint } from "./BoardSprint";
+import { BoardCardSheet } from "./RepoBoard";
 import type { ClaudeLimits } from "@/lib/limits";
 
 export type BoardData = {
@@ -16,6 +17,7 @@ export type BoardData = {
 export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const { board, cards, canEdit, role } = data;
   const [sheet, setSheet] = useState<null | "pick" | "share" | "settings" | { repo: string }>(null);
+  const [openCard, setOpenCard] = useState<{ repo: string; number: number } | null>(null);
   const active = sortStage(cards.filter((c) => ACTIVE.includes(c.stage)), "building");
 
   return (
@@ -34,7 +36,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       {data.failed.length > 0 && <div className="banner">読み込めなかったリポジトリ: {data.failed.join("、")}(GitHub の権限を確認してください)</div>}
 
       <BoardAdd data={data} reload={reload} toast={toast} />
-      <BoardSprint data={data} reload={reload} toast={toast} />
+      <BoardSprint data={data} reload={reload} toast={toast} onOpen={(c) => setOpenCard({ repo: c.repo, number: c.number })} />
 
       <div className="home-grid">
         {board.repos.map((r) => {
@@ -68,7 +70,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
           <span className="note">このボードのすべてのリポジトリの AI実装中〜確認</span>
         </div>
         {active.length ? active.map((c) => (
-          <div key={c.id} className="ov-row" onClick={() => go(c.repo)}>
+          <div key={c.id} className="ov-row" role="button" tabIndex={0} onClick={() => setOpenCard({ repo: c.repo, number: c.number })} onKeyDown={(e) => e.key === "Enter" && setOpenCard({ repo: c.repo, number: c.number })}>
             <span className="r">{board.repos.find((r) => r.full === c.repo)?.name}</span>
             <span className="t">{c.title} {blockersOf(c, cards).length > 0 && <span className="chip wait">前提待ち</span>}</span>
             <span className="stagepill" style={cssVar(c.stage)}>{stageName(c.stage)} {Math.round(progress(c) * 100)}%</span>
@@ -76,6 +78,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         )) : <div className="note">いま進行中の作業はありません。各リポジトリの「次にやる」から AI に渡しましょう。</div>}
       </section>
 
+      <BoardCardSheet boardId={board.id} open={openCard} allCards={cards} canEdit={canEdit} budget={board.budgetTokens} weekLimit={board.weekTokens} reload={reload} toast={toast} onClose={() => setOpenCard(null)} />
       {sheet === "pick" && <Picker boardId={board.id} have={board.repos.map((r) => r.full)} onClose={() => setSheet(null)} done={async (full) => { setSheet(null); await reload(); toast(`${full} を追加しました`); }} toast={toast} />}
       {sheet === "share" && <Share data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}

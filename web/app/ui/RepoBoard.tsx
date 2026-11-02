@@ -431,3 +431,63 @@ function SprintField({ c, all, weekLimit, busy, setSprint }: { c: Card; all: Car
     </div>
   );
 }
+
+/**
+ * ボード画面(全リポジトリ)からタスクを押したとき、その画面の上でタスク詳細を開く。
+ * 操作はリポジトリ画面(RepoBoard)と同じ API で、カードのリポジトリに対して行う。
+ */
+export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekLimit, reload, toast, onClose }: {
+  boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; budget?: number; weekLimit?: number;
+  reload: () => Promise<void>; toast: (m: string) => void; onClose: () => void;
+}) {
+  const [busy, setBusy] = useState<Record<string, string>>({});
+  const [handoff, setHandoff] = useState<{ title: string; r: HandoffResult; copied: boolean } | null>(null);
+  const cards = useMemo(() => allCards.filter((c) => c.repo === open?.repo), [allCards, open?.repo]);
+  const c = open ? cards.find((x) => x.number === open.number) || null : null;
+  const base = `/api/boards/${boardId}/r/${open?.repo}`;
+
+  async function run(key: string, label: string, fn: () => Promise<unknown>, done: string) {
+    setBusy((b) => ({ ...b, [key]: label }));
+    try { await fn(); await reload(); if (done) toast(done); }
+    catch (e) { toast((e as Error).message); }
+    finally { setBusy((b) => { const n = { ...b }; delete n[key]; return n; }); }
+  }
+  const patch = (x: Card, body: Record<string, unknown>, done = "保存しました") => run(String(x.number), "save", () => api(`${base}/cards/${x.number}`, "PATCH", body), done);
+  const move = (x: Card, s: StageId) => {
+    if (s === "building" && blockersOf(x, cards).length) toast(`先に「${blockersOf(x, cards)[0].title}」が終わっている必要があります`);
+    const rank = ordered(s) ? Math.max(0, ...cards.filter((y) => y.stage === s).map((y) => (y.rank < 100000 ? y.rank : 0))) + 1 : undefined;
+    return patch(x, { stage: s, rank }, s === "building" ? "Claude Code に渡しました" : `${stageName(s)}に移動しました`);
+  };
+  const setSprint = (x: Card, w: string) => x.sprint === w ? Promise.resolve()
+    : patch(x, { sprint: w }, w ? `${weekLabel(w)}のスプリントに入れました` : "スプリントから外しました");
+  const plan = (x: Card) => run(String(x.number), "plan", async () => {
+    const r = await api<{ queued?: boolean }>(`${base}/ai`, "POST", { action: "plan", number: x.number });
+    toast(r.queued ? "Claude Code(あなたの契約)が進め方を作っています。1〜2分でカードに反映されます" : "仕様と進め方を作りました");
+  }, "");
+  const fix = (x: Card, feedback: string) => run(String(x.number), "fix", () => api(`${base}/ai`, "POST", { action: "fix", number: x.number, feedback }), "Claude Code に修正を依頼しました");
+  async function local(x: Card) {
+    if (blockersOf(x, cards).length) toast(`先に「${blockersOf(x, cards)[0].title}」が終わっている必要があります`);
+    setBusy((b) => ({ ...b, [x.number]: "local" }));
+    const { result, copied } = startHandoff(`${base}/cards/${x.number}/handoff`);
+    try {
+      const r = await result;
+      setHandoff({ title: x.title, r, copied: await copied });
+      onClose();
+      await reload();
+    } catch (e) { toast((e as Error).message); }
+    finally { setBusy((b) => { const n = { ...b }; delete n[x.number]; return n; }); }
+  }
+  const complete = (x: Card, summary: string, followups?: string[]) =>
+    run(String(x.number), "complete", async () => {
+      const r = await api<{ followups: number[] }>(`${base}/cards/${x.number}/complete`, "POST", { summary, followups });
+      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "完了にしました");
+
+  return (
+    <>
+      {c && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
+        c={c} all={cards} busy={busy[c.number]} onClose={onClose} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
+    </>
+  );
+}
