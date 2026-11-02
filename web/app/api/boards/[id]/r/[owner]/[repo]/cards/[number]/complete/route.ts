@@ -17,7 +17,8 @@ export const POST = async (req: Request, { params }: P) => {
     let followups: string[] | null = Array.isArray(b.followups) ? b.followups.map(String) : null;
     if (!followups) {
       const title = (await listCards(a.token, r)).find((c) => c.number === Number(number))?.title || "";
-      followups = summary.trim() ? await extractFollowups(title, summary) : [];
+      // AI(従量課金の API)が使えなくても、完了にすること自体は止めない
+      followups = summary.trim() ? await extractFollowups(title, summary).catch(() => []) : [];
     }
     return completeCard(a.token, r, Number(number), summary, followups);
   });

@@ -39,7 +39,10 @@ export const POST = async (req: Request, { params }: P) => {
       return { plan: p };
     }
     if (action === "fix") {
-      await requestFix(a.token, r.full, card.number, await makeFix(card, String(feedback || "")), card.pr);
+      const fb = String(feedback || "");
+      // AI が使えないときは、満たしていない受入条件と指摘をそのまま指示にする
+      const text = await makeFix(card, fb).catch(() => `前回の実装を修正してください。\n${fb ? `確認での指摘: ${fb}\n` : ""}満たしていない受入条件: ${card.criteria.filter((c) => !c.done).map((c) => c.text).join(" / ") || "なし"}\n修正したら同じ PR に push してください。`);
+      await requestFix(a.token, r.full, card.number, text, card.pr);
       return { ok: true };
     }
     throw bad("不明な操作です");

@@ -10,7 +10,10 @@ export async function handle(fn: () => Promise<unknown>) {
     const err = e as Error & { status?: number };
     const gh = err.status === 401 && !(e instanceof HttpError); // GitHub said the token is bad
     const status = gh ? 409 : err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
-    const message = gh ? "GitHub の連携が切れています。GitHub を連携し直してください" : err.message;
-    return NextResponse.json({ error: message }, { status });
+    const credit = /credit balance is too low/i.test(err.message);
+    const message = gh ? "GitHub の連携が切れています。GitHub を連携し直してください"
+      : credit ? "Anthropic API のクレジットが足りません(サーバーの ANTHROPIC_API_KEY は従量課金です)。Plans & Billing でクレジットを足すか、Claude の契約で動く「AIで進め方を作る」「手元のClaudeで進める」を使ってください"
+      : err.message;
+    return NextResponse.json({ error: message }, { status: credit ? 402 : status });
   }
 }
