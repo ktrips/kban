@@ -46,10 +46,11 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 ## 手元の Claude で進める
 
 - 「AI実装中」へのドロップ / 「手元のClaudeで進める」→ `POST .../cards/[n]/handoff`: 工程を building にし、Issue に `<!-- kban:runner=local -->`(`claude` ラベルは付けない)。指示は `lib/prompt.ts`、カード専用の使い捨てトークン `kbc_…`(`store.ts`、14日)を末尾に入れる
-- Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が完了にして、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
+- Claude が `POST /api/done`(Bearer `kbc_…`)で `{summary, followups[]}` を報告 → `lib/complete.ts` が**「確認」に進めて**(スプリントから外れる。OK で完了)、followups をバックログの新カードにする。画面の「完了にする」(`.../complete`)は summary から `ai.ts extractFollowups` でも取り出せる
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
 
-- スプリントの自動繰り越し: 週が過ぎても完了でないカード(`lib/sprint.ts rolloverTargets`)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
+- 実装が終わって確認以降(verifying/done)に進んだカードはスプリントから外れる: `updateCard` が stage を verifying/done にするとき sprint を空にする。workflow(resolve.js)が進めた分は `exitTargets` を画面が開いたとき片付ける
+- スプリントの自動繰り越し: 週が過ぎても実装が終わっていないカード(`lib/sprint.ts rolloverTargets`、確認以降は対象外)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
 
 ## Claude Code 連携(リポジトリ側)
 
