@@ -1,6 +1,7 @@
 import { bad, repoOn, Access } from "./access";
 import { createCard, listCards } from "./github";
 import { uploadImages, Upload } from "./attach";
+import { sniffImageType } from "./image";
 
 /** メモ(+スクリーンショット)から backlog のカードを作る。Web の追加欄・iPhone の共有シートの共通処理。 */
 export async function addIdea(a: Access, full: string, memo: string, files: Upload[]) {
@@ -21,7 +22,9 @@ export async function filesOf(form: FormData): Promise<Upload[]> {
   const out: Upload[] = [];
   for (const k of ["images", "image", "files"]) {
     for (const v of form.getAll(k)) {
-      if (typeof v !== "string" && v.size) out.push({ type: v.type || "image/jpeg", data: Buffer.from(await v.arrayBuffer()) });
+      if (typeof v === "string" || !v.size) continue;
+      const data = Buffer.from(await v.arrayBuffer());
+      out.push({ type: sniffImageType(data) || v.type || "image/jpeg", data }); // 中身から判定(端末が type を空で送ることがある)
     }
   }
   return out;

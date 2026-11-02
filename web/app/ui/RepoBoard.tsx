@@ -5,7 +5,9 @@ import { ACTIVE, STAGES, StageId, Card, api, SI, stageName, cssVar, ordered, sor
 import type { Size } from "@/lib/stages";
 import type { Priority } from "@/lib/ai";
 import type { RepoSettings } from "@/lib/store";
-import { QuickAdd, splitIdea } from "./QuickAdd";
+import { QuickAdd } from "./QuickAdd";
+import { splitIdea, joinIdea, imageCount } from "@/lib/idea";
+import { Shots } from "./Shots";
 import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
@@ -260,6 +262,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
       </div>
       <div className="meta">
         {c.size && <span className="chip">{c.size}</span>}
+        {imageCount(c.idea) > 0 && <span className="chip" title="スクリーンショット">📷 {imageCount(c.idea)}</span>}
         {c.sprint && c.stage !== "done" && <span className="chip wk" title="スプリント(週)">{weekLabel(c.sprint)}</span>}
         {c.steps.length > 0 && <span className="chip">進め方 {sd}/{c.steps.length}</span>}
         {(c.stage === "testing" || c.stage === "verifying") && c.criteria.length > 0 && <span className="chip">受入 {c.criteria.filter((x) => x.done).length}/{c.criteria.length}</span>}
@@ -279,10 +282,10 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
   const [f, setF] = useState({
-    title: c.title, idea: c.idea, spec: c.spec, prompt: c.prompt,
+    title: c.title, idea: splitIdea(c.idea, imgBase).text, spec: c.spec, prompt: c.prompt,
     steps: c.steps.map((x) => x.text).join("\n"), criteria: c.criteria.map((x) => x.text).join("\n"),
   });
-  const shots = splitIdea(c.idea, imgBase).images;
+  const { text: ideaText, images: shots, md: shotMd } = splitIdea(c.idea, imgBase);
   const [feedback, setFeedback] = useState("");
   const [extra, setExtra] = useState("");
   const [cs] = useClaudeStatus(base);
@@ -295,8 +298,8 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
 
   const lines = (s: string, prev: { text: string; done: boolean }[]) => s.split("\n").map((t) => t.trim()).filter(Boolean).map((text) => ({ text, done: prev.find((p) => p.text === text)?.done ?? false }));
-  const dirty = f.title !== c.title || f.idea !== c.idea || f.spec !== c.spec || f.prompt !== c.prompt || f.steps !== c.steps.map((x) => x.text).join("\n") || f.criteria !== c.criteria.map((x) => x.text).join("\n");
-  const save = () => patch(c, { title: f.title, idea: f.idea, spec: f.spec, prompt: f.prompt, steps: lines(f.steps, c.steps), criteria: lines(f.criteria, c.criteria) });
+  const dirty = f.title !== c.title || f.idea !== ideaText || f.spec !== c.spec || f.prompt !== c.prompt || f.steps !== c.steps.map((x) => x.text).join("\n") || f.criteria !== c.criteria.map((x) => x.text).join("\n");
+  const save = () => patch(c, { title: f.title, idea: joinIdea(f.idea, shotMd), spec: f.spec, prompt: f.prompt, steps: lines(f.steps, c.steps), criteria: lines(f.criteria, c.criteria) });
   const toggle = (k: "steps" | "criteria", i: number) => patch(c, { [k]: c[k].map((x, j) => (j === i ? { ...x, done: !x.done } : x)) });
   const bl = blockersOf(c, all);
   const others = all.filter((x) => x.number !== c.number && x.stage !== "done");
@@ -383,7 +386,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
           )) : <span className="note">他のタスクはありません</span>}
         </div></div>
         <div className="field"><label htmlFor="idea">アイデア</label><textarea id="idea" value={f.idea} onChange={set("idea")} />
-          {!!shots.length && <div className="thumbs">{shots.map((u) => <a key={u} className="thumb big" href={u} target="_blank" rel="noreferrer"><img src={u} alt="スクリーンショット" /></a>)}</div>}</div>
+          <Shots urls={shots} /></div>
         <div className="field"><label htmlFor="spec">仕様</label><textarea id="spec" style={{ minHeight: 100 }} value={f.spec} onChange={set("spec")} /></div>
         <div className="field"><label htmlFor="steps">進め方(1行に1ステップ)</label><textarea id="steps" value={f.steps} onChange={set("steps")} /></div>
         <div className="field"><label htmlFor="crit">受入条件(1行に1つ)</label><textarea id="crit" value={f.criteria} onChange={set("criteria")} /></div>
