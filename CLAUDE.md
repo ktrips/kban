@@ -51,6 +51,7 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
 
 - カードのリポジトリ変更: `POST .../cards/[n]/move` → `lib/move.ts`(GraphQL `transferIssue`)。同じオーナー・backlog/ready のみ。画像は移し先にコピーして URL を差し替える。**未検証**(実際の GitHub では動かしていない)
+- スプリントの自動繰り越し: 週が過ぎても完了でないカード(`lib/sprint.ts rolloverTargets`)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
 
 ## Claude Code 連携(リポジトリ側)
 

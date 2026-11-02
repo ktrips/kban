@@ -86,3 +86,10 @@ export function sprintLoad(week: string, all: Card[], limit?: number, now = new 
     usedFrom: limit ? "kban" : undefined,
   };
 }
+
+/**
+ * 週が終わっても完了していないカード(その週より前のスプリントに入ったまま、完了でないもの)。
+ * 開いたときに、いまの週のスプリントへ自動で回す対象。
+ */
+export const rolloverTargets = <T extends Pick<Card, "sprint" | "stage">>(cards: T[], week: string) =>
+  cards.filter((c) => !!c.sprint && c.sprint < week && c.stage !== "done");

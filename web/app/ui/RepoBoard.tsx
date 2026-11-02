@@ -14,6 +14,7 @@ import { useClaudeStatus, linked } from "./ClaudeLink";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 import { SprintPanel } from "./Sprint";
 import { touchDrag } from "./touchDrag";
+import { useRollover } from "./useRollover";
 import { addWeeks, weekLabel, weekOf } from "@/lib/sprint";
 import { estimate, fmtTokens } from "@/lib/usage";
 import type { ClaudeLimits } from "@/lib/limits";
@@ -28,6 +29,7 @@ type BoardProps = {
 };
 
 export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+  useRollover(boardId, allCards, canEdit, reload, toast);
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
   const [week, setWeek] = useState(() => weekOf());
