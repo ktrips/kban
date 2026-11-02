@@ -24,11 +24,11 @@ import type { ClaudeLimits } from "@/lib/limits";
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  budget?: number; weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   useRollover(boardId, allCards, canEdit, reload, toast);
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
@@ -238,7 +238,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
       </div></div>
 
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
@@ -284,9 +284,9 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ repos, moveRepo, local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+function Sheet({ repos, moveRepo, local, complete, imgBase, base, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
   repos: RepoSettings[]; moveRepo: (c: Card, to: string) => Promise<void>;
-  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
@@ -331,7 +331,7 @@ function Sheet({ repos, moveRepo, local, complete, imgBase, base, budget, weekLi
       {bl.length > 0 && <p className="err">前提がまだ終わっていません: {bl.map((x) => x.title).join("、")}</p>}
       <p className="note">Issue に <code>claude</code> ラベルを付けます。GitHub Actions の Claude Code が実装を始め、PR を作ります。</p>
       {cs && !linked(cs) && <p className="err">このリポジトリは Claude Code と未連携です({!cs.workflows ? "ワークフロー" : "認証"}が未設定)。ボードのリポジトリ設定の「Claude Code 連携」で設定してください。</p>}
-      <EstimateBox card={c} all={boardCards} budget={budget} />
+      <EstimateBox card={c} all={boardCards} />
       <div className="field"><label htmlFor="extra">追加の指示(任意)</label><textarea id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="例: まず既存のテストを読んでから。UI は変えない" /></div>
       <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
     </>; break;
@@ -449,8 +449,8 @@ function SprintField({ c, all, weekLimit, busy, setSprint }: { c: Card; all: Car
  * ボード画面(全リポジトリ)からタスクを押したとき、その画面の上でタスク詳細を開く。
  * 操作はリポジトリ画面(RepoBoard)と同じ API で、カードのリポジトリに対して行う。
  */
-export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, budget, weekLimit, reload, toast, onClose }: {
-  repos: RepoSettings[]; boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; budget?: number; weekLimit?: number;
+export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, weekLimit, reload, toast, onClose }: {
+  repos: RepoSettings[]; boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; weekLimit?: number;
   reload: () => Promise<void>; toast: (m: string) => void; onClose: () => void;
 }) {
   const [busy, setBusy] = useState<Record<string, string>>({});
@@ -503,7 +503,7 @@ export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, budget
 
   return (
     <>
-      {c && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
+      {c && <Sheet imgBase={`${base}/img`} base={base} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
         c={c} all={cards} busy={busy[c.number]} onClose={onClose} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
     </>
