@@ -23,8 +23,7 @@ export function composePrompt(c: P, done?: { origin: string; token: string }): s
     c.prompt && `## 指示\n${c.prompt}`,
     done && [
       "## 終わったら kban に報告",
-      "作業が終わったら(PR を作る場合はその後)、次のコマンドで kban のカードを完了にしてください。",
-      "`summary` に変更の要約と PR の URL、`followups` に **今回やらなかったこと・気づき・次にやるとよいこと**(1件1行、なければ空配列)を入れます。followups は kban の新しいアイデアになります。",
+      "終わったら(PR を作る場合はその後)、カードを完了にしてください。`summary` は変更の要約と PR の URL を簡潔に、`followups` は今回やらなかったこと・気づき(1件1行、なければ空配列。kban の新しいアイデアになります)。",
       "```bash",
       `curl -sS -X POST ${done.origin}/api/done \\`,
       `  -H 'Authorization: Bearer ${done.token}' -H 'content-type: application/json' \\`,

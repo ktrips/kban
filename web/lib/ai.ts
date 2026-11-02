@@ -28,7 +28,7 @@ Issue: #${card.number}
 ${others.map((o) => `#${o.number}: ${o.title}`).join("\n") || "なし"}
 
 JSONだけを返す(コードフェンス不要):
-{"title":"40字以内の具体的なタスク名","spec":"目的と仕様の箇条書き。各行'- 'で始め4〜7行","steps":["進め方を3〜6ステップ。順番に並べる"],"criteria":["検証できる受入条件を3〜5個"],"size":"S|M|L","dependsOn":[先に終わっている必要がある他タスクの番号],"prompt":"Claude Codeへの指示。変更範囲、触る場所の見当、進め方、追加するテスト、完了の定義を含め、『受入条件をすべて満たしたら gh pr create でPRを作成し、本文に Closes #${card.number}、テスト結果、確認手順を書くこと』で締める"}`));
+{"title":"40字以内の具体的なタスク名","spec":"目的と仕様の箇条書き。各行'- 'で始め3〜5行。各行は短く簡潔に","steps":["進め方を3〜5ステップ。各ステップは1行で簡潔に"],"criteria":["検証できる受入条件を3〜4個。各1行で簡潔に"],"size":"S|M|L","dependsOn":[先に終わっている必要がある他タスクの番号],"prompt":"Claude Codeへの指示。変更範囲、触る場所の見当、進め方、追加するテスト、完了の定義を含め、『受入条件をすべて満たしたら gh pr create でPRを作成し、本文に Closes #${card.number}、テスト結果、確認手順を書くこと』で締める"}`));
   const known = new Set(others.map((o) => o.number));
   return {
     title: String(v.title || card.title).slice(0, 80),
