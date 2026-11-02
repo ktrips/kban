@@ -149,11 +149,10 @@ export function BoardAdd({ data, reload, toast }: { data: BoardData; reload: () 
   }
   return (
     <section className="section" aria-label="アイデアを追加">
-      <div className="field"><label htmlFor="bsRepo">アイデアを追加するリポジトリ</label>
-        <select id="bsRepo" value={addTo} onChange={(e) => { setAddTo(e.target.value); try { localStorage.setItem(KEY, e.target.value); } catch { /* 使えなくてもよい */ } }}>
+      <QuickAdd placeholder={`${name} で次に作りたいことを書く…`} busy={busy} onAdd={add}
+        lead={<select id="bsRepo" className="add-repo" aria-label="アイデアを追加するリポジトリ" title="アイデアを追加するリポジトリ" value={addTo} onChange={(e) => { setAddTo(e.target.value); try { localStorage.setItem(KEY, e.target.value); } catch { /* 使えなくてもよい */ } }}>
           {board.repos.map((r) => <option key={r.full} value={r.full}>{r.name}</option>)}
-        </select></div>
-      <QuickAdd placeholder={`${name} で次に作りたいことを書く…`} busy={busy} onAdd={add} />
+        </select>} />
     </section>
   );
 }
