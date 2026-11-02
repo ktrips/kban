@@ -51,7 +51,7 @@ Web と iPhone アプリは同じサーバーを見ています。画像(`kban-a
 
 - 目安は、同じサイズ(S/M/L)の完了済みカードの実績(2件以上)の中央値。なければサイズ別の既定値(S 15万 / M 50万 / L 150万)
 - 実績は、リポジトリ側の `kban-claude` ワークフローが Claude Code の実行後に Issue へ記録します(`<!-- kban:tokens=… -->`。入力+出力+キャッシュ作成のトークンと概算ドル)
-- 実装中のカードに、ここまでの使用量が出ます。5時間・1週間は、`kban-claude` が Issue に残す履歴(`<!-- kban:usage=秒:トークン,… -->`)の合計で、**kban から動かした Claude Code の分だけ**です(Claude の契約の枠(%)そのものではありません)。履歴は `install.sh` を入れ直した後の実行分から溜まります。既に `install.sh` を入れたリポジトリは、`install.sh` をもう一度実行して `kban-claude.yml` と `resolve.js` を更新してください
+- 実装中のカードに、ここまでの使用量が出ます。週の「使用済み」は、`kban-claude` が Issue に残す履歴(`<!-- kban:usage=秒:トークン,… -->`)の合計で、**kban から動かした Claude Code の分だけ**です(Claude の契約の枠(%)そのものではありません)。履歴は `install.sh` を入れ直した後の実行分から溜まります。既に `install.sh` を入れたリポジトリは、`install.sh` をもう一度実行して `kban-claude.yml` と `resolve.js` を更新してください
 
 ## しくみ
 
