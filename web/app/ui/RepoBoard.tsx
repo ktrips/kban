@@ -127,8 +127,8 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   const complete = (c: Card, summary: string, followups?: string[]) =>
     run(String(c.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${c.number}/complete`, "POST", { summary, followups });
-      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
-    }, "完了にしました");
+      if (r.followups.length) toast(`確認に進めました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "確認に進めました");
 
   const [dragNo, setDragNo] = useState<number | null>(null);
   const drop = (s: StageId, overNo?: number) => {
@@ -339,7 +339,7 @@ function Sheet({ repos, moveRepo, local, complete, imgBase, base, budget, weekLi
       <h3>3. {c.runner === "local" ? "進行中(手元の Claude)" : "AI実装中"}</h3>
       {c.runner === "local"
         ? <>
-            <p className="note">Claude での作業が終わると、Claude が kban に報告してこのカードが完了になります。報告されなかったときは、Claude の最後の報告を貼って完了にできます。</p>
+            <p className="note">Claude での作業が終わると、Claude が kban に報告して、このカードが「確認」に進みます(スプリントからは外れます)。報告されなかったときは、Claude の最後の報告を貼って進められます。</p>
             <div className="btns"><button className="btn" disabled={!!busy} onClick={() => local(c)}>指示をもう一度コピー</button></div>
             <CompleteForm c={c} busy={busy} complete={complete} />
           </>
@@ -412,7 +412,7 @@ function Sheet({ repos, moveRepo, local, complete, imgBase, base, budget, weekLi
   );
 }
 
-/** Claude の最後の報告を貼って完了にする。フォローアップは AI が取り出して新しいアイデアにする(下の欄で直接書いてもよい) */
+/** Claude の最後の報告を貼って、実装の終わりとして「確認」に進める。フォローアップは AI が取り出して新しいアイデアにする(下の欄で直接書いてもよい) */
 function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete: (c: Card, summary: string, followups?: string[]) => Promise<void> }) {
   const [summary, setSummary] = useState("");
   const [follow, setFollow] = useState("");
@@ -423,7 +423,7 @@ function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete:
       <textarea id="sum" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="変更の要約、PR の URL、残った課題など" />
       <label htmlFor="fol">フォローアップ(1行1件。空なら報告から AI が取り出す)</label>
       <textarea id="fol" value={follow} onChange={(e) => setFollow(e.target.value)} placeholder="例: 横向きのときのテストを足す" />
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "完了にしています…" : "完了にする(フォローアップは新しいアイデアに)"}</button></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "確認に進めています…" : "実装が終わった → 確認へ(フォローアップは新しいアイデアに)"}</button></div>
     </div>
   );
 }
@@ -498,8 +498,8 @@ export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, budget
   const complete = (x: Card, summary: string, followups?: string[]) =>
     run(String(x.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${x.number}/complete`, "POST", { summary, followups });
-      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
-    }, "完了にしました");
+      if (r.followups.length) toast(`確認に進めました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "確認に進めました");
 
   return (
     <>
