@@ -67,8 +67,9 @@ export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, repo
   const setSprint = (c: Card, w: string) => c.sprint === w ? Promise.resolve()
     : patch(c, { sprint: w }, w ? `${weekLabel(w)}のスプリントに入れました` : "スプリントから外しました");
   /** カードを別のリポジトリへ移す */
-  const moveRepo = (c: Card, to: string) => run(String(c.number), "move", async () => {
-    const r = await api<{ repo: string; number: number }>(`${base}/cards/${c.number}/move`, "POST", { to });
+  const moveRepo = (c: Card, to: string, create?: NewRepo) => run(String(c.number), "move", async () => {
+    const r = await api<{ repo: string; number: number; setupPr?: string }>(`${base}/cards/${c.number}/move`, "POST", create ? { create } : { to });
+    if (create) to = r.repo;
     setOpenNo(null);
     toast(`${to.split("/")[1]} に移しました(#${r.number})`);
   }, "");
@@ -285,7 +286,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
 }
 
 function Sheet({ repos, moveRepo, local, complete, imgBase, base, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  repos: RepoSettings[]; moveRepo: (c: Card, to: string) => Promise<void>;
+  repos: RepoSettings[]; moveRepo: (c: Card, to: string, create?: NewRepo) => Promise<void>;
   local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
@@ -490,8 +491,9 @@ export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, weekLi
     } catch (e) { toast((e as Error).message); }
     finally { setBusy((b) => { const n = { ...b }; delete n[x.number]; return n; }); }
   }
-  const moveRepo = (x: Card, to: string) => run(String(x.number), "move", async () => {
-    const r = await api<{ repo: string; number: number }>(`${base}/cards/${x.number}/move`, "POST", { to });
+  const moveRepo = (x: Card, to: string, create?: NewRepo) => run(String(x.number), "move", async () => {
+    const r = await api<{ repo: string; number: number; setupPr?: string }>(`${base}/cards/${x.number}/move`, "POST", create ? { create } : { to });
+    if (create) to = r.repo;
     onClose();
     toast(`${to.split("/")[1]} に移しました(#${r.number})`);
   }, "");
@@ -511,8 +513,12 @@ export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, weekLi
 }
 
 /** カードのリポジトリを変える。移せるのは「バックログ」「次にやる」のカードだけ(同じオーナーのリポジトリへ) */
-function RepoField({ c, repos, busy, moveRepo }: { c: Card; repos: RepoSettings[]; busy?: string; moveRepo: (c: Card, to: string) => Promise<void> }) {
+type NewRepo = { name: string; description?: string; private: boolean };
+
+function RepoField({ c, repos, busy, moveRepo }: { c: Card; repos: RepoSettings[]; busy?: string; moveRepo: (c: Card, to: string, create?: NewRepo) => Promise<void> }) {
   const [to, setTo] = useState(c.repo);
+  const [name, setName] = useState("");
+  const [pub, setPub] = useState(false);
   const movable = c.stage === "backlog" || c.stage === "ready";
   return (
     <div className="field"><label htmlFor="rp">リポジトリ</label>
@@ -522,6 +528,17 @@ function RepoField({ c, repos, busy, moveRepo }: { c: Card; repos: RepoSettings[
         </select>
         <button type="button" className="btn" disabled={!!busy || !movable || to === c.repo} onClick={() => { if (confirm(`このカードを ${to} に移します。Issue 番号は移し先の新しい番号になります。`)) moveRepo(c, to); }}>{busy === "move" ? "移動中…" : "移す"}</button>
       </div>
+      {movable && (
+        <details style={{ marginTop: 8 }}>
+          <summary>新しいリポジトリにする</summary>
+          <div className="btns" style={{ marginTop: 6 }}>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="リポジトリ名 例: my-app" style={{ flex: 1, minWidth: 0 }} aria-label="新しいリポジトリ名" />
+            <button type="button" className="btn primary" disabled={!!busy || !name.trim()} onClick={() => { if (confirm(`GitHub に ${name.trim()} を${pub ? "公開" : "非公開"}で作り、このカードを最初のタスクにします(持ち主のみ)。`)) moveRepo(c, "", { name: name.trim(), description: c.title, private: !pub }); }}>作って移す</button>
+          </div>
+          <label className="note"><input type="checkbox" checked={pub} onChange={(e) => setPub(e.target.checked)} /> 公開する(既定は非公開)</label>
+          <span className="note"> ボードにも追加し、Claude Code 連携の PR も作ります</span>
+        </details>
+      )}
       <span className="note">{movable ? "GitHub の Issue ごと移します(履歴・コメント・画像も引き継ぎます。前提は外れます)" : "移せるのは「バックログ」「次にやる」のカードだけです(進行中は PR などがあるため)"}</span>
     </div>
   );

@@ -51,6 +51,7 @@ Ken(GitHub: ktrips)の個人開発用カンバン。日本語 UI。ユーザー�
 - クリップボードは Safari の制約で、操作の直後に Promise のまま `ClipboardItem` に渡す(`ui/Handoff.tsx`)
 
 - カードのリポジトリ変更: `POST .../cards/[n]/move` → `lib/move.ts`(GraphQL `transferIssue`)。同じオーナー・backlog/ready のみ。画像は移し先にコピーして URL を差し替える。**未検証**(実際の GitHub では動かしていない)
+- 新しいリポジトリにする: 同じ route に `{create:{name,private}}`(ボードの持ち主のみ)→ `graduateCard`: リポジトリ作成 → カードを最初のタスクに移す → ボードに追加 → `installClaude` の PR。**未検証**
 - 実装が終わって確認以降(verifying/done)に進んだカードはスプリントから外れる: `updateCard` が stage を verifying/done にするとき sprint を空にする。workflow(resolve.js)が進めた分は `exitTargets` を画面が開いたとき片付ける
 - スプリントの自動繰り越し: 週が過ぎても実装が終わっていないカード(`lib/sprint.ts rolloverTargets`、確認以降は対象外)を、画面が開いたとき `ui/useRollover.ts` → `POST /api/boards/[id]/rollover {week}` で今週に回す。週の区切りが端末の時刻なので、サーバーの定時実行ではなく画面から呼ぶ
 
