@@ -2,7 +2,7 @@ import { access, bad, repoOn } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
 import { listCards, updateCard } from "@/lib/github";
 import { makeDoneToken } from "@/lib/store";
-import { composePrompt } from "@/lib/prompt";
+import { composePrompt, claudeCodeUrl } from "@/lib/prompt";
 import { publicOrigin } from "@/lib/origin";
 
 type P = Ctx<{ id: string; owner: string; repo: string; number: string }>;
@@ -20,6 +20,6 @@ export const POST = async (req: Request, { params }: P) => {
     const token = await makeDoneToken({ uid: a.user.uid, board: id, repo: r.full, number: n });
     if (card.stage !== "building" || card.runner !== "local") await updateCard(a.token, r.full, n, { stage: "building", runner: "local" });
     const prompt = composePrompt(card, { origin: publicOrigin(req), token });
-    return { prompt, claudeUrl: prompt.length < 6000 ? `https://claude.ai/new?q=${encodeURIComponent(prompt)}` : "https://claude.ai/new" };
+    return { prompt, claudeUrl: claudeCodeUrl(r.full, prompt) };
   });
 };

@@ -34,7 +34,7 @@ export function HandoffSheet({ title, r, copied, onClose, toast }: { title: stri
           <p style={{ margin: 0 }}><b>{title}</b> を進行中にしました。{ok ? "指示をコピー済みです。" : "指示をコピーしてください。"}Claude(VS Code・アプリ・claude.ai)に貼り付けて始めます。</p>
           <div className="btns">
             <button className="btn primary" onClick={copy}>{ok ? "もう一度コピー" : "指示をコピー"}</button>
-            <a className="btn" href={r.claudeUrl} target="_blank" rel="noreferrer">claude.ai で開く</a>
+            <a className="btn" href={r.claudeUrl} target="_blank" rel="noreferrer">Claude Code(クラウド)で開く</a>
           </div>
           <p className="note" style={{ margin: 0 }}>終わったら、Claude が最後のコマンドで kban に報告すると、カードが「確認」に進み(スプリントからは外れます)、残った課題が新しいアイデアになります。確認して OK すると完了です。報告されなかったときは、カードの「実装が終わった」から貼り付けて進められます。</p>
           <textarea readOnly value={r.prompt} rows={10} style={{ width: "100%", fontFamily: "var(--f-mono, monospace)", fontSize: 12 }} aria-label="貼り付ける指示" onFocus={(e) => e.currentTarget.select()} />

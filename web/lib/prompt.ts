@@ -33,3 +33,13 @@ export function composePrompt(c: P, done?: { origin: string; token: string }): s
   ];
   return out.filter(Boolean).join("\n\n");
 }
+
+/**
+ * 「claude.ai で開く」のリンク: Claude Code(クラウド)の新しいセッションを、そのリポジトリを選び、指示を入れた状態で開く。
+ * https://claude.ai/code/new?q=指示&repo=owner/name(公式ヘルプのリンク形式)。リポジトリが Claude アカウントに連携されていないと repo は無視される。
+ * 指示が長すぎるとリンクが切れるので、その場合はリポジトリだけ選んで(指示はコピー済みを貼る)開く。
+ */
+export function claudeCodeUrl(repo: string, prompt: string): string {
+  const base = `https://claude.ai/code/new?repo=${encodeURIComponent(repo)}`;
+  return prompt.length < 6000 ? `${base}&q=${encodeURIComponent(prompt)}` : base;
+}
