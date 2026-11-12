@@ -12,6 +12,7 @@ import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
 import { RepoSettingsSheet } from "./RepoSettings";
+import { RepoInfo } from "./RepoInfo";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 import { SprintPanel } from "./Sprint";
 import { touchDrag } from "./touchDrag";
@@ -198,6 +199,7 @@ export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, isOw
       </header>
 
       {settings && <RepoSettingsSheet isOwner={!!isOwner} boardId={boardId} repo={repo} onClose={() => setSettings(false)} reload={async () => { await reload(); }} toast={toast} onRemoved={() => go(null)} />}
+      <RepoInfo key={`${repo.full}:${repo.about}:${repo.url}:${repo.appUrl}`} boardId={boardId} repo={repo} canEdit={canEdit} reload={reload} toast={toast} />
       {canEdit && <QuickAdd placeholder={`${repo.name} で次に作りたいことを書く…`} busy={!!busy.add} onAdd={add} />}
 
       <div className="summary">
