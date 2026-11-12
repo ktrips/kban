@@ -7,6 +7,9 @@ import { ClaudeLink } from "./ClaudeLink";
 import { useRollover } from "./useRollover";
 import { BoardAdd, BoardSprint } from "./BoardSprint";
 import { BoardCardSheet } from "./RepoBoard";
+import { Sheet } from "./Sheet";
+import { RepoSettingsSheet } from "./RepoSettings";
+export { Sheet };
 import type { ClaudeLimits } from "@/lib/limits";
 
 export type BoardData = {
@@ -84,18 +87,6 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet && typeof sheet === "object" && <RepoSettingsSheet isOwner={role === "owner"} boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
     </>
-  );
-}
-
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
-  return (
-    <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="sheet-h"><input value={title} readOnly aria-label="見出し" /><button className="btn small ghost" onClick={onClose}>閉じる</button></div>
-        {children}
-      </aside>
-    </div>
   );
 }
 
@@ -212,22 +203,3 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
   );
 }
 
-function RepoSettingsSheet({ isOwner, boardId, repo, onClose, reload, toast }: { boardId: string; isOwner: boolean; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
-  const [f, setF] = useState({ name: repo.name, target: repo.target, about: repo.about });
-  async function save() { try { await api(`/api/boards/${boardId}/repos`, "PATCH", { full: repo.full, ...f }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
-  async function remove() { try { await api(`/api/boards/${boardId}/repos?full=${encodeURIComponent(repo.full)}`, "DELETE"); await reload(); onClose(); toast("ボードから外しました"); } catch (e) { toast((e as Error).message); } }
-  return (
-    <Sheet title={`${repo.name} の設定`} onClose={onClose}>
-      <div className="section">
-        <div className="row2">
-          <div className="field"><label htmlFor="rsName">表示名</label><input id="rsName" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-          <div className="field"><label htmlFor="rsT">対象</label><select id="rsT" value={f.target} onChange={(e) => setF({ ...f, target: e.target.value as RepoSettings["target"] })}><option value="web">Web</option><option value="ios">iOS</option><option value="both">iOS+Web</option></select></div>
-        </div>
-        <div className="field"><label htmlFor="rsAbout">アプリの概要(AI が優先順位や仕様を考えるときに使います)</label><textarea id="rsAbout" value={f.about} onChange={(e) => setF({ ...f, about: e.target.value })} /></div>
-        <div className="btns"><button className="btn primary" onClick={save}>保存</button></div>
-      </div>
-      <ClaudeLink base={`/api/boards/${boardId}/r/${repo.full}`} isOwner={isOwner} target={repo.target} toast={toast} />
-      <div className="section"><h3>ボードから外す</h3><p className="note">GitHub の Issue とラベルは残ります。</p><div className="btns"><button className="btn" onClick={remove}>{repo.name} を外す</button></div></div>
-    </Sheet>
-  );
-}
