@@ -57,6 +57,11 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
                 <div><b>{l.length ? Math.round((n("done") / l.length) * 100) : 0}<small>%</small></b><span>完了率</span></div>
               </div>
               <StagesBar list={l} />
+              <div className="btns" onClick={(e) => e.stopPropagation()}>
+                {r.url && <a className="btn small" href={r.url} target="_blank" rel="noreferrer">Web を開く ↗</a>}
+                {r.appUrl && <a className="btn small" href={r.appUrl} target="_blank" rel="noreferrer">アプリを開く ↗</a>}
+                <a className="btn small ghost" href={`https://github.com/${r.full}`} target="_blank" rel="noreferrer">GitHub ↗</a>
+              </div>
               <div className="nexts">{nexts.length ? nexts.map((c, i) => <div key={c.id}>{i ? "その次" : "次にやる"}: {c.title}</div>) : <div>バックログは空です。アイデアを書き込みましょう</div>}</div>
             </div>
           );
@@ -213,7 +218,7 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
 }
 
 function RepoSettingsSheet({ isOwner, boardId, repo, onClose, reload, toast }: { boardId: string; isOwner: boolean; repo: RepoSettings; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
-  const [f, setF] = useState({ name: repo.name, target: repo.target, about: repo.about });
+  const [f, setF] = useState({ name: repo.name, target: repo.target, about: repo.about, url: repo.url || "", appUrl: repo.appUrl || "" });
   async function save() { try { await api(`/api/boards/${boardId}/repos`, "PATCH", { full: repo.full, ...f }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function remove() { try { await api(`/api/boards/${boardId}/repos?full=${encodeURIComponent(repo.full)}`, "DELETE"); await reload(); onClose(); toast("ボードから外しました"); } catch (e) { toast((e as Error).message); } }
   return (
@@ -224,6 +229,10 @@ function RepoSettingsSheet({ isOwner, boardId, repo, onClose, reload, toast }: {
           <div className="field"><label htmlFor="rsT">対象</label><select id="rsT" value={f.target} onChange={(e) => setF({ ...f, target: e.target.value as RepoSettings["target"] })}><option value="web">Web</option><option value="ios">iOS</option><option value="both">iOS+Web</option></select></div>
         </div>
         <div className="field"><label htmlFor="rsAbout">アプリの概要(AI が優先順位や仕様を考えるときに使います)</label><textarea id="rsAbout" value={f.about} onChange={(e) => setF({ ...f, about: e.target.value })} /></div>
+        <div className="row2">
+          <div className="field"><label htmlFor="rsUrl">Web の URL</label><input id="rsUrl" type="url" inputMode="url" placeholder="https://…" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} /></div>
+          <div className="field"><label htmlFor="rsApp">アプリの URL(TestFlight / App Store)</label><input id="rsApp" type="url" inputMode="url" placeholder="https://testflight.apple.com/join/…" value={f.appUrl} onChange={(e) => setF({ ...f, appUrl: e.target.value })} /></div>
+        </div>
         <div className="btns"><button className="btn primary" onClick={save}>保存</button></div>
       </div>
       <ClaudeLink base={`/api/boards/${boardId}/r/${repo.full}`} isOwner={isOwner} target={repo.target} toast={toast} />

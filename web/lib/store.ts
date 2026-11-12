@@ -15,7 +15,7 @@ import type { ClaudeLimits } from "./limits";
  * unless FIRESTORE_EMULATOR_HOST or GOOGLE_APPLICATION_CREDENTIALS is set.
  */
 export type Role = "editor" | "viewer";
-export type RepoSettings = { full: string; name: string; target: Target; about: string };
+export type RepoSettings = { full: string; name: string; target: Target; about: string; /** Web アプリの URL */ url?: string; /** iOS アプリ(TestFlight / App Store)の URL */ appUrl?: string };
 export type Board = {
   id: string;
   name: string;
