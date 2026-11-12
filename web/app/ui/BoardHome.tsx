@@ -60,6 +60,11 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
                 <div><b>{l.length ? Math.round((n("done") / l.length) * 100) : 0}<small>%</small></b><span>完了率</span></div>
               </div>
               <StagesBar list={l} />
+              <div className="btns" onClick={(e) => e.stopPropagation()}>
+                {r.url && <a className="btn small" href={r.url} target="_blank" rel="noreferrer">Web を開く ↗</a>}
+                {r.appUrl && <a className="btn small" href={r.appUrl} target="_blank" rel="noreferrer">アプリを開く ↗</a>}
+                <a className="btn small ghost" href={`https://github.com/${r.full}`} target="_blank" rel="noreferrer">GitHub ↗</a>
+              </div>
               <div className="nexts">{nexts.length ? nexts.map((c, i) => <div key={c.id}>{i ? "その次" : "次にやる"}: {c.title}</div>) : <div>バックログは空です。アイデアを書き込みましょう</div>}</div>
             </div>
           );

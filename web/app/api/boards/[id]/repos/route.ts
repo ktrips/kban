@@ -28,12 +28,18 @@ export const PATCH = async (req: Request, { params }: P) => {
   const { id } = await params;
   return handle(async () => {
     const a = await access(id, "edit");
-    const { full, name, target, about } = await req.json();
+    const { full, name, target, about, url, appUrl } = await req.json();
     const r = a.board.repos.find((x) => x.full === full);
     if (!r) throw bad("このボードにないリポジトリです");
     if (name) r.name = String(name).slice(0, 40);
     if (TARGETS.includes(target)) r.target = target;
     if (about !== undefined) r.about = String(about).slice(0, 1000);
+    for (const [k, v] of [["url", url], ["appUrl", appUrl]] as const) {
+      if (v === undefined) continue;
+      const t = String(v).trim();
+      if (t && !/^https?:\/\/\S+$/.test(t)) throw bad("URL は https:// か http:// で始めてください");
+      r[k] = t.slice(0, 500) || undefined;
+    }
     await saveBoard(a.board);
   });
 };
