@@ -61,8 +61,10 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
               </div>
               <StagesBar list={l} />
               <div className="btns" onClick={(e) => e.stopPropagation()}>
-                {r.url && <a className="btn small" href={r.url} target="_blank" rel="noreferrer">Web を開く ↗</a>}
-                {r.appUrl && <a className="btn small" href={r.appUrl} target="_blank" rel="noreferrer">アプリを開く ↗</a>}
+                {([["Web", r.url, r.target !== "ios"], ["iOS", r.appUrl, r.target !== "web"]] as const).map(([label, href, applies]) =>
+                  href
+                    ? <a key={label} className="btn small" href={href} target="_blank" rel="noreferrer" title={`${label} のアプリのページを開く`}>{label} ↗</a>
+                    : applies && <button key={label} type="button" className="btn small ghost" disabled={!canEdit} title={canEdit ? `${label} のリンクを設定する` : `${label} のリンクは未設定です`} onClick={() => setSheet({ repo: r.full })}>{label}(未設定)</button>)}
                 <a className="btn small ghost" href={`https://github.com/${r.full}`} target="_blank" rel="noreferrer">GitHub ↗</a>
               </div>
               <div className="nexts">{nexts.length ? nexts.map((c, i) => <div key={c.id}>{i ? "その次" : "次にやる"}: {c.title}</div>) : <div>バックログは空です。アイデアを書き込みましょう</div>}</div>
