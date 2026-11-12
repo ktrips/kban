@@ -19,7 +19,7 @@ const KEY = "kban:addRepo";
  * ボード画面のスプリント。全リポジトリのカードを、リポジトリのタグ付きで一覧し、その週に入れる/外す。
  * アイデアの追加(リポジトリを選ぶ)と、その週の Claude の使用量(超過しそうか)もここで見る。
  */
-export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void; onOpen: (c: Card) => void }) {
+export function BoardSprint({ data, reload, toast, onOpen, go }: { go: (full: string | null) => void; data: BoardData; reload: () => Promise<void>; toast: (m: string) => void; onOpen: (c: Card) => void }) {
   const { board, cards, canEdit, limits } = data;
   const [week, setWeek] = useState(() => weekOf());
   const [tag, setTag] = useState(""); // 候補を絞り込むリポジトリ("" = すべて)
@@ -28,7 +28,8 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
   const name = (full: string) => board.repos.find((r) => r.full === full)?.name || full;
   const hue = (full: string) => (Math.max(0, board.repos.findIndex((r) => r.full === full)) * 67 + 200) % 360;
   const Tag = ({ full }: { full: string }) => (
-    <span className="chip rtag" style={{ background: `hsl(${hue(full)} 55% 45% / .18)`, color: `hsl(${hue(full)} 60% 55%)`, fontWeight: 600 }}>{name(full)}</span>
+    <button type="button" className="chip rtag" title={`${name(full)} のページへ`} onClick={(e) => { e.stopPropagation(); go(full); }}
+      style={{ background: `hsl(${hue(full)} 55% 45% / .18)`, color: `hsl(${hue(full)} 60% 55%)`, fontWeight: 600, border: 0, cursor: "pointer", font: "inherit" }}>{name(full)}</button>
   );
 
   const l = sprintLoad(week, cards, board.weekTokens, new Date(), limits);

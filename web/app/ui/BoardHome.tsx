@@ -40,7 +40,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
       {data.failed.length > 0 && <div className="banner">読み込めなかったリポジトリ: {data.failed.join("、")}(GitHub の権限を確認してください)</div>}
 
       <BoardAdd data={data} reload={reload} toast={toast} />
-      <BoardSprint data={data} reload={reload} toast={toast} onOpen={(c) => setOpenCard({ repo: c.repo, number: c.number })} />
+      <BoardSprint go={go} data={data} reload={reload} toast={toast} onOpen={(c) => setOpenCard({ repo: c.repo, number: c.number })} />
 
       <div className="home-grid">
         {board.repos.map((r) => {
@@ -80,7 +80,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         </div>
         {active.length ? active.map((c) => (
           <div key={c.id} className="ov-row" role="button" tabIndex={0} onClick={() => setOpenCard({ repo: c.repo, number: c.number })} onKeyDown={(e) => e.key === "Enter" && setOpenCard({ repo: c.repo, number: c.number })}>
-            <span className="r">{board.repos.find((r) => r.full === c.repo)?.name}</span>
+            <span className="r" role="link" tabIndex={0} style={{ cursor: "pointer", textDecoration: "underline dotted" }} title="リポジトリのページへ" onClick={(e) => { e.stopPropagation(); go(c.repo); }} onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); go(c.repo); } }}>{board.repos.find((r) => r.full === c.repo)?.name}</span>
             <span className="t">{c.title} {blockersOf(c, cards).length > 0 && <span className="chip wait">前提待ち</span>}</span>
             <span className="stagepill" style={cssVar(c.stage)}>{stageName(c.stage)} {Math.round(progress(c) * 100)}%</span>
           </div>
