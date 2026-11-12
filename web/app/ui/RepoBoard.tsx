@@ -11,6 +11,8 @@ import { Shots } from "./Shots";
 import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
+import { RepoSettingsSheet } from "./RepoSettings";
+import { RepoInfo } from "./RepoInfo";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 import { SprintPanel } from "./Sprint";
 import { touchDrag } from "./touchDrag";
@@ -26,14 +28,15 @@ import type { RunState } from "@/lib/github";
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; isOwner?: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, isOwner, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
   useRollover(boardId, allCards, canEdit, reload, toast);
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
+  const [settings, setSettings] = useState(false);
   const [week, setWeek] = useState(() => weekOf());
   const [openNo, setOpenNo] = useState<number | null>(null);
   const [busy, setBusy] = useState<Record<string, string>>({});
@@ -191,9 +194,12 @@ export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, repo
         <span className="chip mono">{repo.full}</span>
         {!canEdit && <span className="chip">見るだけ</span>}
         <div className="spacer" />
+        {canEdit && <button className="btn small" onClick={() => setSettings(true)}>設定</button>}
         <a className="btn small" href={`https://github.com/${repo.full}/issues?q=label%3Akban`} target="_blank" rel="noreferrer">GitHub の Issue</a>
       </header>
 
+      {settings && <RepoSettingsSheet isOwner={!!isOwner} boardId={boardId} repo={repo} onClose={() => setSettings(false)} reload={async () => { await reload(); }} toast={toast} onRemoved={() => go(null)} />}
+      <RepoInfo key={`${repo.full}:${repo.about}:${repo.url}:${repo.appUrl}`} boardId={boardId} repo={repo} canEdit={canEdit} reload={reload} toast={toast} />
       {canEdit && <QuickAdd placeholder={`${repo.name} で次に作りたいことを書く…`} busy={!!busy.add} onAdd={add} />}
 
       <div className="summary">
