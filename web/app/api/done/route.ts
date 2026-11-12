@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 手元の Claude が作業後に呼ぶ。Authorization: Bearer kbc_…(カードごとの使い捨てトークン)
- * body: { summary, followups: string[] } → カードを完了にし、followups を新しいアイデアにする。
+ * body: { summary, followups: string[] } → カードを「確認」に進め(スプリントから外れる)、followups を新しいアイデアにする。
  */
 export const POST = (req: Request) =>
   handle(async () => {

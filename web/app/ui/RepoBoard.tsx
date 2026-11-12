@@ -5,13 +5,16 @@ import { ACTIVE, STAGES, StageId, Card, api, SI, stageName, cssVar, ordered, sor
 import type { Size } from "@/lib/stages";
 import type { Priority } from "@/lib/ai";
 import type { RepoSettings } from "@/lib/store";
-import { QuickAdd, splitIdea } from "./QuickAdd";
+import { QuickAdd } from "./QuickAdd";
+import { splitIdea, joinIdea, imageCount } from "@/lib/idea";
+import { Shots } from "./Shots";
 import { ProgressPanel } from "./Progress";
 import { EstimateBox, usedBy } from "./Usage";
 import { useClaudeStatus, linked } from "./ClaudeLink";
 import { HandoffSheet, startHandoff, type HandoffResult } from "./Handoff";
 import { SprintPanel } from "./Sprint";
 import { touchDrag } from "./touchDrag";
+import { useRollover } from "./useRollover";
 import { addWeeks, weekLabel, weekOf } from "@/lib/sprint";
 import { estimate, fmtTokens } from "@/lib/usage";
 import type { ClaudeLimits } from "@/lib/limits";
@@ -23,11 +26,12 @@ import type { RunState } from "@/lib/github";
 const planning = (c: Card) => !!c.planning && Date.now() / 1000 - c.planning < 20 * 60;
 const planLabel = (c: Card, busy?: string, idle = "AIで進め方を作る") => (busy === "plan" ? "依頼中…" : planning(c) ? "Claude Code が作成中…" : idle);
 type BoardProps = {
-  budget?: number; weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
+  weekLimit?: number; claude?: ClaudeLimits | null; boardId: string; boardName: string; canEdit: boolean; repo: RepoSettings; repos: RepoSettings[]; cards: Card[];
   go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void;
 };
 
-export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+export function RepoBoard({ weekLimit, claude, boardId, boardName, canEdit, repo, repos, cards: allCards, go, reload, toast }: BoardProps) {
+  useRollover(boardId, allCards, canEdit, reload, toast);
   const cards = useMemo(() => allCards.filter((c) => c.repo === repo.full), [allCards, repo.full]);
   const [stage, setStage] = useState<StageId>("backlog");
   const [week, setWeek] = useState(() => weekOf());
@@ -67,6 +71,13 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   /** スプリント(週)に入れる / "" で外す */
   const setSprint = (c: Card, w: string) => c.sprint === w ? Promise.resolve()
     : patch(c, { sprint: w }, w ? `${weekLabel(w)}のスプリントに入れました` : "スプリントから外しました");
+  /** カードを別のリポジトリへ移す */
+  const moveRepo = (c: Card, to: string, create?: NewRepo) => run(String(c.number), "move", async () => {
+    const r = await api<{ repo: string; number: number; setupPr?: string }>(`${base}/cards/${c.number}/move`, "POST", create ? { create } : { to });
+    if (create) to = r.repo;
+    setOpenNo(null);
+    toast(`${to.split("/")[1]} に移しました(#${r.number})`);
+  }, "");
   const reorder = (c: Card, to: number) => {
     const list = by[c.stage].filter((x) => x.number !== c.number);
     list.splice(Math.max(0, Math.min(to, list.length)), 0, c);
@@ -144,8 +155,8 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
   const complete = (c: Card, summary: string, followups?: string[]) =>
     run(String(c.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${c.number}/complete`, "POST", { summary, followups });
-      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
-    }, "完了にしました");
+      if (r.followups.length) toast(`確認に進めました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "確認に進めました");
 
   const [dragNo, setDragNo] = useState<number | null>(null);
   const drop = (s: StageId, overNo?: number) => {
@@ -256,7 +267,7 @@ export function RepoBoard({ budget, weekLimit, claude, boardId, boardName, canEd
       </div></div>
 
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
-      {open && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
+      {open && <Sheet imgBase={`${base}/img`} base={base} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${open.id}:${open.updatedAt}`} c={open} all={cards} busy={busy[open.number]} onClose={() => setOpenNo(null)} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
     </>
   );
 }
@@ -288,6 +299,7 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
       </div>
       <div className="meta">
         {c.size && <span className="chip">{c.size}</span>}
+        {imageCount(c.idea) > 0 && <span className="chip" title="スクリーンショット">📷 {imageCount(c.idea)}</span>}
         {c.sprint && c.stage !== "done" && <span className="chip wk" title="スプリント(週)">{weekLabel(c.sprint)}</span>}
         {c.steps.length > 0 && <span className="chip">進め方 {sd}/{c.steps.length}</span>}
         {(c.stage === "testing" || c.stage === "verifying") && c.criteria.length > 0 && <span className="chip">受入 {c.criteria.filter((x) => x.done).length}/{c.criteria.length}</span>}
@@ -301,16 +313,17 @@ function CardView({ canEdit, c, i, n, all, busy, onOpen, onPlan, onMove, onDragS
   );
 }
 
-function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
-  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; budget?: number; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
+function Sheet({ repos, moveRepo, local, complete, imgBase, base, weekLimit, setSprint, boardCards, canEdit, c, all, busy, onClose, move, patch, plan, fix }: {
+  repos: RepoSettings[]; moveRepo: (c: Card, to: string, create?: NewRepo) => Promise<void>;
+  local: (c: Card) => Promise<void>; complete: (c: Card, summary: string, followups?: string[]) => Promise<void>; imgBase: string; base: string; weekLimit?: number; setSprint: (c: Card, w: string) => Promise<void>; boardCards: Card[]; canEdit: boolean; c: Card; all: Card[]; busy?: string; onClose: () => void;
   move: (c: Card, s: StageId) => Promise<void>; patch: (c: Card, b: Record<string, unknown>, done?: string) => Promise<void>;
   plan: (c: Card) => Promise<void>; fix: (c: Card, feedback: string) => Promise<void>;
 }) {
   const [f, setF] = useState({
-    title: c.title, idea: c.idea, spec: c.spec, prompt: c.prompt,
+    title: c.title, idea: splitIdea(c.idea, imgBase).text, spec: c.spec, prompt: c.prompt,
     steps: c.steps.map((x) => x.text).join("\n"), criteria: c.criteria.map((x) => x.text).join("\n"),
   });
-  const shots = splitIdea(c.idea, imgBase).images;
+  const { text: ideaText, images: shots, md: shotMd } = splitIdea(c.idea, imgBase);
   const [feedback, setFeedback] = useState("");
   const [extra, setExtra] = useState("");
   const [cs] = useClaudeStatus(base);
@@ -323,8 +336,8 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
 
   const lines = (s: string, prev: { text: string; done: boolean }[]) => s.split("\n").map((t) => t.trim()).filter(Boolean).map((text) => ({ text, done: prev.find((p) => p.text === text)?.done ?? false }));
-  const dirty = f.title !== c.title || f.idea !== c.idea || f.spec !== c.spec || f.prompt !== c.prompt || f.steps !== c.steps.map((x) => x.text).join("\n") || f.criteria !== c.criteria.map((x) => x.text).join("\n");
-  const save = () => patch(c, { title: f.title, idea: f.idea, spec: f.spec, prompt: f.prompt, steps: lines(f.steps, c.steps), criteria: lines(f.criteria, c.criteria) });
+  const dirty = f.title !== c.title || f.idea !== ideaText || f.spec !== c.spec || f.prompt !== c.prompt || f.steps !== c.steps.map((x) => x.text).join("\n") || f.criteria !== c.criteria.map((x) => x.text).join("\n");
+  const save = () => patch(c, { title: f.title, idea: joinIdea(f.idea, shotMd), spec: f.spec, prompt: f.prompt, steps: lines(f.steps, c.steps), criteria: lines(f.criteria, c.criteria) });
   const toggle = (k: "steps" | "criteria", i: number) => patch(c, { [k]: c[k].map((x, j) => (j === i ? { ...x, done: !x.done } : x)) });
   const bl = blockersOf(c, all);
   const others = all.filter((x) => x.number !== c.number && x.stage !== "done");
@@ -347,7 +360,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
       {bl.length > 0 && <p className="err">前提がまだ終わっていません: {bl.map((x) => x.title).join("、")}</p>}
       <p className="note">Issue に <code>claude</code> ラベルを付けます。GitHub Actions の Claude Code が実装を始め、PR を作ります。</p>
       {cs && !linked(cs) && <p className="err">このリポジトリは Claude Code と未連携です({!cs.workflows ? "ワークフロー" : "認証"}が未設定)。ボードのリポジトリ設定の「Claude Code 連携」で設定してください。</p>}
-      <EstimateBox card={c} all={boardCards} budget={budget} />
+      <EstimateBox card={c} all={boardCards} />
       <div className="field"><label htmlFor="extra">追加の指示(任意)</label><textarea id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="例: まず既存のテストを読んでから。UI は変えない" /></div>
       <div className="btns"><button className="btn primary" disabled={!!busy} onClick={handOff}>AIに渡す</button><button className="btn" disabled={!!busy} onClick={() => local(c)}>手元のClaudeで進める</button></div>
     </>; break;
@@ -355,7 +368,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
       <h3>3. {c.runner === "local" ? "進行中(手元の Claude)" : "AI実装中"}</h3>
       {c.runner === "local"
         ? <>
-            <p className="note">Claude での作業が終わると、Claude が kban に報告してこのカードが完了になります。報告されなかったときは、Claude の最後の報告を貼って完了にできます。</p>
+            <p className="note">Claude での作業が終わると、Claude が kban に報告して、このカードが「確認」に進みます(スプリントからは外れます)。報告されなかったときは、Claude の最後の報告を貼って進められます。</p>
             <div className="btns"><button className="btn" disabled={!!busy} onClick={() => local(c)}>指示をもう一度コピー</button></div>
             <CompleteForm c={c} busy={busy} complete={complete} />
           </>
@@ -398,6 +411,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
         {!canEdit && <p className="note">このボードは見るだけの権限です。</p>}
         <div className="section act">{action}</div>
         <div className="section"><h3>進め方</h3>{checklist("steps", "まだありません。AI で作るか、下の欄に1行ずつ書きます")}</div>
+        <RepoField c={c} repos={repos} busy={busy} moveRepo={moveRepo} />
         <div className="row3">
           <div className="field"><label htmlFor="stg">工程</label><select id="stg" value={c.stage} disabled={!!busy} onChange={(e) => move(c, e.target.value as StageId)}>{STAGES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
           <div className="field"><label htmlFor="size">サイズ</label><select id="size" value={c.size} disabled={!!busy} onChange={(e) => patch(c, { size: e.target.value as Size })}><option value="">未定</option><option value="S">S 半日</option><option value="M">M 1〜2日</option><option value="L">L 3日〜</option></select></div>
@@ -411,7 +425,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
           )) : <span className="note">他のタスクはありません</span>}
         </div></div>
         <div className="field"><label htmlFor="idea">アイデア</label><textarea id="idea" value={f.idea} onChange={set("idea")} />
-          {!!shots.length && <div className="thumbs">{shots.map((u) => <a key={u} className="thumb big" href={u} target="_blank" rel="noreferrer"><img src={u} alt="スクリーンショット" /></a>)}</div>}</div>
+          <Shots urls={shots} /></div>
         <div className="field"><label htmlFor="spec">仕様</label><textarea id="spec" style={{ minHeight: 100 }} value={f.spec} onChange={set("spec")} /></div>
         <div className="field"><label htmlFor="steps">進め方(1行に1ステップ)</label><textarea id="steps" value={f.steps} onChange={set("steps")} /></div>
         <div className="field"><label htmlFor="crit">受入条件(1行に1つ)</label><textarea id="crit" value={f.criteria} onChange={set("criteria")} /></div>
@@ -427,7 +441,7 @@ function Sheet({ local, complete, imgBase, base, budget, weekLimit, setSprint, b
   );
 }
 
-/** Claude の最後の報告を貼って完了にする。フォローアップは AI が取り出して新しいアイデアにする(下の欄で直接書いてもよい) */
+/** Claude の最後の報告を貼って、実装の終わりとして「確認」に進める。フォローアップは AI が取り出して新しいアイデアにする(下の欄で直接書いてもよい) */
 function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete: (c: Card, summary: string, followups?: string[]) => Promise<void> }) {
   const [summary, setSummary] = useState("");
   const [follow, setFollow] = useState("");
@@ -438,7 +452,7 @@ function CompleteForm({ c, busy, complete }: { c: Card; busy?: string; complete:
       <textarea id="sum" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="変更の要約、PR の URL、残った課題など" />
       <label htmlFor="fol">フォローアップ(1行1件。空なら報告から AI が取り出す)</label>
       <textarea id="fol" value={follow} onChange={(e) => setFollow(e.target.value)} placeholder="例: 横向きのときのテストを足す" />
-      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "完了にしています…" : "完了にする(フォローアップは新しいアイデアに)"}</button></div>
+      <div className="btns"><button className="btn primary" disabled={!!busy} onClick={() => complete(c, summary, lines.length ? lines : undefined)}>{busy === "complete" ? "確認に進めています…" : "実装が終わった → 確認へ(フォローアップは新しいアイデアに)"}</button></div>
     </div>
   );
 }
@@ -464,8 +478,8 @@ function SprintField({ c, all, weekLimit, busy, setSprint }: { c: Card; all: Car
  * ボード画面(全リポジトリ)からタスクを押したとき、その画面の上でタスク詳細を開く。
  * 操作はリポジトリ画面(RepoBoard)と同じ API で、カードのリポジトリに対して行う。
  */
-export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekLimit, reload, toast, onClose }: {
-  boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; budget?: number; weekLimit?: number;
+export function BoardCardSheet({ repos, boardId, open, allCards, canEdit, weekLimit, reload, toast, onClose }: {
+  repos: RepoSettings[]; boardId: string; open: { repo: string; number: number } | null; allCards: Card[]; canEdit: boolean; weekLimit?: number;
   reload: () => Promise<void>; toast: (m: string) => void; onClose: () => void;
 }) {
   const [busy, setBusy] = useState<Record<string, string>>({});
@@ -505,17 +519,55 @@ export function BoardCardSheet({ boardId, open, allCards, canEdit, budget, weekL
     } catch (e) { toast((e as Error).message); }
     finally { setBusy((b) => { const n = { ...b }; delete n[x.number]; return n; }); }
   }
+  const moveRepo = (x: Card, to: string, create?: NewRepo) => run(String(x.number), "move", async () => {
+    const r = await api<{ repo: string; number: number; setupPr?: string }>(`${base}/cards/${x.number}/move`, "POST", create ? { create } : { to });
+    if (create) to = r.repo;
+    onClose();
+    toast(`${to.split("/")[1]} に移しました(#${r.number})`);
+  }, "");
   const complete = (x: Card, summary: string, followups?: string[]) =>
     run(String(x.number), "complete", async () => {
       const r = await api<{ followups: number[] }>(`${base}/cards/${x.number}/complete`, "POST", { summary, followups });
-      if (r.followups.length) toast(`完了にしました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
-    }, "完了にしました");
+      if (r.followups.length) toast(`確認に進めました。フォローアップ ${r.followups.length} 件をバックログに追加しました`);
+    }, "確認に進めました");
 
   return (
     <>
-      {c && <Sheet imgBase={`${base}/img`} base={base} budget={budget} weekLimit={weekLimit} setSprint={setSprint} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
+      {c && <Sheet imgBase={`${base}/img`} base={base} weekLimit={weekLimit} setSprint={setSprint} repos={repos} moveRepo={moveRepo} boardCards={allCards} canEdit={canEdit} key={`${c.id}:${c.updatedAt}`}
         c={c} all={cards} busy={busy[c.number]} onClose={onClose} move={move} patch={patch} plan={plan} fix={fix} local={local} complete={complete} />}
       {handoff && <HandoffSheet title={handoff.title} r={handoff.r} copied={handoff.copied} onClose={() => setHandoff(null)} toast={toast} />}
     </>
+  );
+}
+
+/** カードのリポジトリを変える。移せるのは「バックログ」「次にやる」のカードだけ(同じオーナーのリポジトリへ) */
+type NewRepo = { name: string; description?: string; private: boolean };
+
+function RepoField({ c, repos, busy, moveRepo }: { c: Card; repos: RepoSettings[]; busy?: string; moveRepo: (c: Card, to: string, create?: NewRepo) => Promise<void> }) {
+  const [to, setTo] = useState(c.repo);
+  const [name, setName] = useState("");
+  const [pub, setPub] = useState(false);
+  const movable = c.stage === "backlog" || c.stage === "ready";
+  return (
+    <div className="field"><label htmlFor="rp">リポジトリ</label>
+      <div className="btns">
+        <select id="rp" value={to} disabled={!!busy || !movable} onChange={(e) => setTo(e.target.value)} style={{ flex: 1, minWidth: 0 }}>
+          {repos.map((r) => <option key={r.full} value={r.full}>{r.name}({r.full})</option>)}
+        </select>
+        <button type="button" className="btn" disabled={!!busy || !movable || to === c.repo} onClick={() => { if (confirm(`このカードを ${to} に移します。Issue 番号は移し先の新しい番号になります。`)) moveRepo(c, to); }}>{busy === "move" ? "移動中…" : "移す"}</button>
+      </div>
+      {movable && (
+        <details style={{ marginTop: 8 }}>
+          <summary>新しいリポジトリにする</summary>
+          <div className="btns" style={{ marginTop: 6 }}>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="リポジトリ名 例: my-app" style={{ flex: 1, minWidth: 0 }} aria-label="新しいリポジトリ名" />
+            <button type="button" className="btn primary" disabled={!!busy || !name.trim()} onClick={() => { if (confirm(`GitHub に ${name.trim()} を${pub ? "公開" : "非公開"}で作り、このカードを最初のタスクにします(持ち主のみ)。`)) moveRepo(c, "", { name: name.trim(), description: c.title, private: !pub }); }}>作って移す</button>
+          </div>
+          <label className="note"><input type="checkbox" checked={pub} onChange={(e) => setPub(e.target.checked)} /> 公開する(既定は非公開)</label>
+          <span className="note"> ボードにも追加し、Claude Code 連携の PR も作ります</span>
+        </details>
+      )}
+      <span className="note">{movable ? "GitHub の Issue ごと移します(履歴・コメント・画像も引き継ぎます。前提は外れます)" : "移せるのは「バックログ」「次にやる」のカードだけです(進行中は PR などがあるため)"}</span>
+    </div>
   );
 }

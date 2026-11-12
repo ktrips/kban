@@ -4,19 +4,21 @@ import { useEffect, useState } from "react";
 import { ACTIVE, STAGES, StageId, Card, api, ago, stageName, cssVar, sortStage, blockersOf, progress, StagesBar, tLabel } from "./common";
 import type { RepoSettings, Role } from "@/lib/store";
 import { ClaudeLink } from "./ClaudeLink";
+import { useRollover } from "./useRollover";
 import { BoardAdd, BoardSprint } from "./BoardSprint";
 import { BoardCardSheet } from "./RepoBoard";
 import type { ClaudeLimits } from "@/lib/limits";
 
 export type BoardData = {
-  board: { id: string; name: string; ownerEmail: string; budgetTokens?: number; weekTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
+  board: { id: string; name: string; ownerEmail: string; weekTokens?: number; repos: RepoSettings[]; members?: Record<string, Role> };
   role: "owner" | Role; canEdit: boolean; cards: Card[]; failed: string[]; limits?: ClaudeLimits | null;
 };
 
 /** One board: its repositories with progress, everything in flight across them, and sharing. */
 export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (full: string | null) => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const { board, cards, canEdit, role } = data;
-  const [sheet, setSheet] = useState<null | "pick" | "share" | "settings" | { repo: string }>(null);
+  useRollover(board.id, cards, canEdit, reload, toast);
+  const [sheet, setSheet] = useState<null | "pick" | "settings" | { repo: string }>(null);
   const [openCard, setOpenCard] = useState<{ repo: string; number: number } | null>(null);
   const active = sortStage(cards.filter((c) => ACTIVE.includes(c.stage)), "building");
 
@@ -30,7 +32,6 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         </div>
         {role !== "owner" && <span className="chip">{board.ownerEmail} のボード · {canEdit ? "編集できる" : "見るだけ"}</span>}
         <div className="spacer" />
-        {role === "owner" && <button className="btn small" onClick={() => setSheet("share")}>共有{board.members && Object.keys(board.members).length ? ` (${Object.keys(board.members).length})` : ""}</button>}
         {role === "owner" && <button className="btn small" onClick={() => setSheet("settings")}>ボード設定</button>}
       </header>
       {data.failed.length > 0 && <div className="banner">読み込めなかったリポジトリ: {data.failed.join("、")}(GitHub の権限を確認してください)</div>}
@@ -78,16 +79,15 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
         )) : <div className="note">いま進行中の作業はありません。各リポジトリの「次にやる」から AI に渡しましょう。</div>}
       </section>
 
-      <BoardCardSheet boardId={board.id} open={openCard} allCards={cards} canEdit={canEdit} budget={board.budgetTokens} weekLimit={board.weekTokens} reload={reload} toast={toast} onClose={() => setOpenCard(null)} />
+      <BoardCardSheet repos={board.repos} boardId={board.id} open={openCard} allCards={cards} canEdit={canEdit} weekLimit={board.weekTokens} reload={reload} toast={toast} onClose={() => setOpenCard(null)} />
       {sheet === "pick" && <Picker boardId={board.id} have={board.repos.map((r) => r.full)} onClose={() => setSheet(null)} done={async (full) => { setSheet(null); await reload(); toast(`${full} を追加しました`); }} toast={toast} />}
-      {sheet === "share" && <Share data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet === "settings" && <BoardSettings data={data} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
       {sheet && typeof sheet === "object" && <RepoSettingsSheet isOwner={role === "owner"} boardId={board.id} repo={board.repos.find((r) => r.full === sheet.repo)!} onClose={() => setSheet(null)} reload={reload} toast={toast} />}
     </>
   );
 }
 
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -132,7 +132,8 @@ function Picker({ boardId, have, onClose, done, toast }: { boardId: string; have
   );
 }
 
-function Share({ data, onClose, reload, toast }: { data: BoardData; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
+/** 共有(ボード設定の中に表示する) */
+function ShareSection({ data, reload, toast }: { data: BoardData; reload: () => Promise<void>; toast: (m: string) => void }) {
   const b = data.board;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("editor");
@@ -156,7 +157,7 @@ function Share({ data, onClose, reload, toast }: { data: BoardData; onClose: () 
     } catch (e) { toast((e as Error).message); }
   }
   return (
-    <Sheet title={`「${b.name}」を共有`} onClose={onClose}>
+    <>
       <form className="section" onSubmit={invite}>
         <h3>Google アカウントで共有</h3>
         <p className="note">相手がそのメールアドレスの Google アカウントで kban にログインすると、このボードが「共有されたボード」に出ます。GitHub 上の操作はあなたのアカウントで行われるので、相手に GitHub の権限は要りません。</p>
@@ -180,28 +181,26 @@ function Share({ data, onClose, reload, toast }: { data: BoardData; onClose: () 
         )) : <p className="note">まだ誰とも共有していません。</p>}
         <p className="note">リポジトリ1つだけを共有したいときは、そのリポジトリだけを入れたボードを作って共有してください。</p>
       </div>
-    </Sheet>
+    </>
   );
 }
 
 function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onClose: () => void; reload: () => Promise<void>; toast: (m: string) => void }) {
   const [name, setName] = useState(data.board.name);
   const [confirm, setConfirm] = useState(false);
-  const [budget, setBudget] = useState(data.board.budgetTokens ? String(Math.round(data.board.budgetTokens / 10000)) : "");
   const [week, setWeek] = useState(data.board.weekTokens ? String(Math.round(data.board.weekTokens / 10000)) : "");
   const man = (v: string) => (v.trim() ? Number(v) * 10000 : null);
-  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name, budgetTokens: man(budget), weekTokens: man(week) }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
+  async function save() { try { await api(`/api/boards/${data.board.id}`, "PATCH", { name, weekTokens: man(week) }); await reload(); onClose(); toast("保存しました"); } catch (e) { toast((e as Error).message); } }
   async function del() { try { await api(`/api/boards/${data.board.id}`, "DELETE"); location.hash = ""; toast("ボードを削除しました"); } catch (e) { toast((e as Error).message); } }
   return (
     <Sheet title="ボード設定" onClose={onClose}>
       <div className="section">
         <div className="field"><label htmlFor="bsName">ボード名</label><input id="bsName" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="field"><label htmlFor="bsBudget">月のトークン予算(万トークン・任意)</label><input id="bsBudget" inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} placeholder="例: 500(= 500万)" />
-          <span className="note">Claude Code に渡す前の「何%使うか」の分母です。Claude の契約の残り枠は取得できないので、自分で決めた枠になります。</span></div>
         <div className="field"><label htmlFor="bsWeek">週の上限のトークン換算(万トークン・任意)</label><input id="bsWeek" inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/\D/g, ""))} placeholder="例: 300(= 300万)" />
-          <span className="note">スプリントの見込み(トークン)を「週の上限の何%か」に直すための値です。使用済みの % は Claude から取得できますが(トップの「Claude の使用率を kban に送る」)、上限のトークン数は取得できないため、目安を入れてください。</span></div>
+          <span className="note">スプリントの見込み(トークン)を「週の上限の何%か」に直すための値です。使用済みの % は Claude から取得できますが(トップ右上のアカウント → 設定 →「Claude の使用率を kban に送る」)、上限のトークン数は取得できないため、目安を入れてください。</span></div>
         <div className="btns"><button className="btn primary" onClick={save} disabled={!name.trim()}>保存</button></div>
       </div>
+      <ShareSection data={data} reload={reload} toast={toast} />
       <div className="section">
         <h3>ボードを削除</h3>
         <p className="note">GitHub の Issue は残ります。共有も解除されます。</p>

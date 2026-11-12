@@ -159,6 +159,8 @@ export type Patch = Partial<CardBody> & Partial<Pick<Markers, "rank" | "reason" 
 
 export async function updateCard(token: string, full: string, number: number, patch: Patch) {
   const { owner, repo } = split(full);
+  // 確認(実装が終わった)以降に進んだカードは、スプリントから外れる
+  if ((patch.stage === "verifying" || patch.stage === "done") && patch.sprint === undefined) patch = { ...patch, sprint: "" };
   const { data: issue } = await gh(token).issues.get({ owner, repo, issue_number: number });
   const update: Parameters<Octokit["issues"]["update"]>[0] = { owner, repo, issue_number: number };
   if (patch.title) update.title = patch.title.slice(0, 120);

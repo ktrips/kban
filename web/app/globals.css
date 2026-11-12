@@ -77,6 +77,45 @@ h1{font-size:15px;margin:0}
 .repo .nexts{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px;min-width:0}
 .repo .nexts div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .repo.add{align-items:center;justify-content:center;border-style:dashed;color:var(--muted);min-height:180px;background:transparent}
+/* top: account menu */
+.acct{position:relative}
+.acct-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-size:17px;cursor:pointer;display:grid;place-items:center;padding:0}
+.acct-btn:hover{box-shadow:0 0 0 3px var(--soft)}
+.acct-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;display:flex;flex-direction:column}
+.acct-who{display:flex;flex-direction:column;gap:2px;padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;overflow-wrap:anywhere}
+.acct-menu form{display:contents}
+.acct-menu [role="menuitem"]{border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:14px;width:100%;color:inherit;text-decoration:none;display:block}
+.acct-menu [role="menuitem"]:hover{background:var(--soft)}
+
+/* top: what I want to make, one big card per repository */
+.life-hero{padding:18px 2px 4px}
+.life-hero h1{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,56px);line-height:1.15;letter-spacing:.01em}
+.life-hero p{margin:10px 0 0;color:var(--muted);font-size:15px}
+.life-sec{font-family:var(--f-display);font-weight:400;font-size:20px;margin:12px 0 0}
+.life{display:flex;flex-direction:column;gap:12px}
+.life-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--line);padding-bottom:6px}
+.life-board{font-family:var(--f-display);font-size:22px;color:inherit;text-decoration:none}
+.life-board:hover{color:var(--accent)}
+.life-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:14px}
+.life-repo{--c:hsl(var(--h,20) 70% 48%);position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;min-height:180px;padding:20px 20px 16px;border-radius:16px;border:1px solid var(--line);border-top:6px solid var(--c);color:inherit;text-decoration:none;
+  background:linear-gradient(145deg,hsl(var(--h,20) 75% 55% / .16),transparent 62%),var(--panel)}
+.life-repo:hover{border-color:var(--c);transform:translateY(-2px);box-shadow:0 12px 28px hsl(var(--h,20) 60% 30% / .18)}
+.life-nm{font-family:var(--f-display);font-size:clamp(26px,3vw,36px);line-height:1.05;color:var(--c);overflow-wrap:anywhere}
+.life-about{margin:0;font-size:16px;line-height:1.6;font-weight:500;flex:1;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.life-about.none{font-size:14px;font-weight:400;color:var(--muted)}
+.life-foot{display:flex;gap:10px;justify-content:space-between;font-size:12px;color:var(--muted)}
+.life-foot .num{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.life-repo.add{align-items:center;justify-content:center;border-style:dashed;border-top-width:1px;background:transparent;color:var(--muted);min-height:140px}
+@media (max-width:600px){
+  .life-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .life-repo{min-height:150px;padding:14px 12px 10px;gap:6px;border-radius:12px;border-top-width:4px}
+  .life-nm{font-size:22px}
+  .life-about{font-size:13px;line-height:1.5}
+  .life-about.none{font-size:12px}
+  .life-foot{font-size:10px;gap:6px}
+}
+@media (prefers-reduced-motion:no-preference){.life-repo{transition:transform .15s,box-shadow .15s,border-color .15s}}
+
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
@@ -177,7 +216,9 @@ h1{font-size:15px;margin:0}
 .add.quick{flex-direction:column;align-items:stretch}
 .add.quick textarea{width:100%;border:0;background:transparent;padding:6px 8px;font-size:16px;resize:vertical;min-height:52px;font-family:inherit}
 .add.quick textarea:focus{outline:none}
-.add.quick .row{display:flex;gap:8px;align-items:center}
+.add.quick .row{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;width:100%;min-width:0}
+.add.quick .row .btn{flex:none;padding:6px 12px;white-space:nowrap}
+.add-repo{flex:1 1 0;min-width:0;width:0;padding:6px 8px;font-size:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:inherit;text-overflow:ellipsis}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:0 4px}
 .thumb{position:relative;display:inline-block}
 .thumb img{height:72px;border-radius:8px;border:1px solid var(--line);display:block}
@@ -196,6 +237,9 @@ h1{font-size:15px;margin:0}
 .meter{height:8px;border-radius:99px;background:var(--line);display:flex;overflow:hidden}
 .meter i{display:block;height:100%;background:var(--muted)}
 .meter i.plus{background:var(--s-building)}
+.meter.slim{height:5px}
+.meter.inline{flex:1 1 100px;min-width:80px;max-width:220px}
+.sp-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 /* スプリント(週)。ドラッグの落とし先 */
 .sprint{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .sprint.over{border-left-color:var(--bad)}
@@ -210,7 +254,19 @@ h1{font-size:15px;margin:0}
 .sp-t{flex:1 1 160px;min-width:0;text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:6px}
 .sp-t .dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .chip.wk{color:var(--accent);border-color:currentColor}
+@media (max-width:600px){
+  .sp-list li{flex-wrap:nowrap}
+  .sp-list .sp-x{display:none}
+  .sp-list li > .chip{flex:none}
+  .sp-list .sp-t{flex:1 1 0;min-width:0}
+  .sp-list .sp-tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
 /* 指でのドラッグ(touchDrag.ts) */
 .drag-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 body.touch-dragging{-webkit-user-select:none;user-select:none}
 @media (hover:none){.card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}}
+.thumb.broken{display:inline-flex;align-items:center;height:72px;padding:0 12px;border:1px dashed var(--line);border-radius:8px;font-size:13px;color:var(--muted)}
+.thumb.big img{max-width:100%;width:auto}
+
+/* repository badge (sprint) */
+.chip.rtag{font-size:14px;line-height:1.3;padding:3px 10px;border-radius:8px}
