@@ -87,7 +87,7 @@ export function BoardHome({ data, go, reload, toast }: { data: BoardData; go: (f
   );
 }
 
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -197,7 +197,7 @@ function BoardSettings({ data, onClose, reload, toast }: { data: BoardData; onCl
       <div className="section">
         <div className="field"><label htmlFor="bsName">ボード名</label><input id="bsName" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="field"><label htmlFor="bsWeek">週の上限のトークン換算(万トークン・任意)</label><input id="bsWeek" inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/\D/g, ""))} placeholder="例: 300(= 300万)" />
-          <span className="note">スプリントの見込み(トークン)を「週の上限の何%か」に直すための値です。使用済みの % は Claude から取得できますが(トップの「Claude の使用率を kban に送る」)、上限のトークン数は取得できないため、目安を入れてください。</span></div>
+          <span className="note">スプリントの見込み(トークン)を「週の上限の何%か」に直すための値です。使用済みの % は Claude から取得できますが(トップ右上のアカウント → 設定 →「Claude の使用率を kban に送る」)、上限のトークン数は取得できないため、目安を入れてください。</span></div>
         <div className="btns"><button className="btn primary" onClick={save} disabled={!name.trim()}>保存</button></div>
       </div>
       <ShareSection data={data} reload={reload} toast={toast} />

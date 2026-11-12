@@ -1,4 +1,5 @@
-import { gh, ensureLabels, updateCard } from "./github";
+import { gh, ensureLabels, updateCard, installClaude } from "./github";
+import type { Target } from "./stages";
 import { parseBody } from "./body";
 import { stageFromLabels } from "./stages";
 import { uploadImages } from "./attach";
@@ -40,4 +41,24 @@ export async function moveCard(token: string, from: string, number: number, to: 
   }
   await updateCard(token, to.full, newNo, { idea, dependsOn: [], rank, target: to.target });
   return { repo: to.full, number: newNo };
+}
+
+/**
+ * アイデアが育ったとき: 新しいリポジトリ(自分のアカウント)を作り、カードをその最初のタスクにする。
+ * kban 連携のワークフローを入れる PR も作る(失敗しても作成とカードの移動は残す)。
+ */
+export async function graduateCard(
+  token: string, from: string, number: number,
+  opts: { name: string; description?: string; private?: boolean; target: Target },
+) {
+  const { data: repo } = await gh(token).repos.createForAuthenticatedUser({
+    name: opts.name, description: (opts.description || "").slice(0, 300), private: opts.private ?? true, auto_init: true,
+  });
+  const dest: RepoSettings = { full: repo.full_name, name: repo.name, target: opts.target, about: repo.description || "" };
+  const moved = await moveCard(token, from, number, dest, 1);
+  let setupPr: string | undefined;
+  try {
+    setupPr = (await installClaude(token, dest.full, opts.target, repo.name.replace(/^./, (c) => c.toUpperCase()))).pr;
+  } catch { /* 連携 PR は後からリポジトリ設定でも作れる */ }
+  return { dest, ...moved, setupPr };
 }

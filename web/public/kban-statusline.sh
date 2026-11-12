@@ -3,7 +3,7 @@
 #
 # 使い方(~/.claude/settings.json):
 #   "statusLine": { "type": "command", "command": "KBAN_TOKEN=kbl_… bash ~/.claude/kban-statusline.sh" }
-#   トークンは kban のトップの「Claude の使用率を kban に送る」で作る。
+#   トークンは kban のトップ右上のアカウント → 設定 →「Claude の使用率を kban に送る」で作る。
 #
 # 送るのは rate_limits の five_hour / seven_day(使用率とリセット時刻)だけ。作業フォルダ・モデル・会話などは送らない。
 # 送信は 1 分に 1 回まで、裏で行う(ステータスラインの表示は待たせない)。

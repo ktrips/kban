@@ -51,6 +51,7 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
   const verdict = total === undefined
     ? (l.usedPct !== undefined && l.usedPct >= 100 ? "すでに上限に達しています" : "")
     : total > 100 ? `超過しそう ${total}%` : total >= 85 ? `ぎりぎり ${total}%` : `収まりそう ${total}%`;
+  const mark = verdict && <span className={l.over ? "err" : ""} title={`${verdict}(使用済み + このスプリントの見込み)`} aria-label={verdict}>{l.over ? "⚠" : total !== undefined && total >= 85 ? "△" : "✓"}</span>;
 
   return (
     <section className={`sprint ${l.over ? "over" : ""}`} aria-label="スプリント(全リポジトリ)">
@@ -61,34 +62,33 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
           <button type="button" className="btn ghost" onClick={() => setWeek(weekOf())} title="今週に戻る"><b>{weekLabel(week)}</b> <span className="note">{dates(week)}</span></button>
           <button type="button" className="btn icon" onClick={() => setWeek(addWeeks(week, 1))} aria-label="次の週">▶</button>
         </div>
-        <span className="note">全リポジトリ {inSprint.length} 件{l.done ? `(完了 ${l.done})` : ""}</span>
+        <span className="note">全{inSprint.length}件{l.done ? `(完了 ${l.done})` : ""}</span>
       </div>
 
       <div className="sp-load">
         <div className="sp-line">
-          {verdict && <span className={`chip ${l.over ? "wait" : ""}`} title="週の上限に対する割合(使用済み + このスプリントの見込み)">{l.over ? "⚠ " : total !== undefined && total >= 85 ? "△ " : "✓ "}{verdict}</span>}
           <span className="note" title={l.usedFrom === "claude" ? `Claude の週の枠の実際の使用率(${ageText(limits!.at)}に取得・リセット ${resetText(l.resetsAt!)})` : "kban から動かした分の使用量"}>
-            見込み {fmtTokens(l.planned)}{l.plannedPct !== undefined ? ` (${l.plannedPct}%)` : ""}
+            見込み {fmtTokens(l.planned)}{l.plannedPct !== undefined ? <> ({l.plannedPct}%{mark})</> : mark ? <> {mark}</> : null}
             {l.usedFrom === "claude" ? <> + 使用済み <b>{l.usedPct}%</b></> : <> + 使用済み {fmtTokens(l.used)}{l.usedPct !== undefined ? ` (${l.usedPct}%)` : ""}</>}
           </span>
-          <a className="note" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">契約の使用状況 ↗</a>
+          <a className="note" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">Usage ↗</a>
+          {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
+            <div className="meter slim inline" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
+          {perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> <span className="num">{x.n}/{fmtTokens(x.t)}</span></span>)}
         </div>
-        {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
-          <div className="meter slim" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
         {!board.weekTokens && <div className="note">「ボード設定」で週の上限を入れると % で見られます</div>}
         {l.over && <div className="err">来週に回すか、サイズを小さく分けましょう</div>}
-        {perRepo.length > 0 && <div className="sp-line">{perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> {x.n}件 · {fmtTokens(x.t)}</span>)}</div>}
       </div>
 
       {inSprint.length === 0
         ? <div className="empty">{canEdit ? "下の候補から「入れる」で、この週のタスクにします" : "この週のタスクはまだありません"}</div>
         : <ul className="sp-list">{inSprint.map((c) => (
             <li key={c.id} style={cssVar(c.stage)} className={c.stage === "done" ? "done" : ""}>
-              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" />{c.title}</button>
               <Tag full={c.repo} />
-              <span className="chip">{stageName(c.stage)}</span>
-              {c.size && <span className="chip">{c.size}</span>}
-              <span className="note mono">{c.stage === "done" ? "済" : `約 ${fmtTokens(remaining(c, cards))}`}</span>
+              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" /><span className="sp-tt">{c.title}</span></button>
+              <span className="chip sp-x">{stageName(c.stage)}</span>
+              {c.size && <span className="chip sp-x">{c.size}</span>}
+              <span className="note mono sp-x">{c.stage === "done" ? "済" : `約 ${fmtTokens(remaining(c, cards))}`}</span>
               {canEdit && <button type="button" className="btn icon" disabled={busy === String(c.id)} onClick={() => setSprint(c, "")} aria-label={`${c.title} をスプリントから外す`}>×</button>}
             </li>
           ))}</ul>}
@@ -105,12 +105,12 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
         ? <div className="empty">入れられるカードはありません</div>
         : <ul className="sp-list">{pool.slice(0, 40).map((c) => (
             <li key={c.id} style={cssVar(c.stage)}>
-              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" />{c.title}</button>
               <Tag full={c.repo} />
-              <span className="chip">{stageName(c.stage)}</span>
-              {c.sprint && <span className="chip wk">{weekLabel(c.sprint)}</span>}
-              {c.size && <span className="chip">{c.size}</span>}
-              <span className="note mono">約 {fmtTokens(remaining(c, cards))}</span>
+              <button type="button" className="sp-t" onClick={() => onOpen(c)}><span className="dot" /><span className="sp-tt">{c.title}</span></button>
+              <span className="chip sp-x">{stageName(c.stage)}</span>
+              {c.sprint && <span className="chip wk sp-x">{weekLabel(c.sprint)}</span>}
+              {c.size && <span className="chip sp-x">{c.size}</span>}
+              <span className="note mono sp-x">約 {fmtTokens(remaining(c, cards))}</span>
               {canEdit && <button type="button" className="btn small" disabled={busy === String(c.id)} onClick={() => setSprint(c, week)}>{weekLabel(week)}に入れる</button>}
             </li>
           ))}</ul>}

@@ -50,7 +50,7 @@ export function SprintPanel({ week, setWeek, all, repo, limit, claude, canEdit, 
         {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
           <div className="meter" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
         {!limit && <div className="note">このスプリントの見込み {fmtTokens(l.planned)} トークン。見込みを % にするには、「ボード設定」で週の上限をトークン換算で入れてください(Claude からは % しか取れないため)</div>}
-        {!claude && week === weekOf() && <div className="note">Claude の実際の使用率を出すには、トップの「Claude の使用率を kban に送る」を設定してください</div>}
+        {!claude && week === weekOf() && <div className="note">Claude の実際の使用率を出すには、トップ右上のアカウント → 設定 →「Claude の使用率を kban に送る」を設定してください</div>}
         {l.over && <div className="err">上限を超える見込みです。タスクを来週に回すか、サイズを小さく分けましょう</div>}
       </div>
 
