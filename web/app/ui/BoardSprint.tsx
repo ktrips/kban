@@ -147,7 +147,7 @@ export function BoardAdd({ data, reload, toast }: { data: BoardData; reload: () 
     setBusy(false);
   }
   return (
-    <section className="section" aria-label="アイデアを追加">
+    <section aria-label="アイデアを追加">
       <QuickAdd placeholder={`${name} で次に作りたいことを書く…`} busy={busy} onAdd={add}
         lead={<select id="bsRepo" className="add-repo" aria-label="アイデアを追加するリポジトリ" title="アイデアを追加するリポジトリ" value={addTo} onChange={(e) => { setAddTo(e.target.value); try { localStorage.setItem(KEY, e.target.value); } catch { /* 使えなくてもよい */ } }}>
           {board.repos.map((r) => <option key={r.full} value={r.full}>{r.name}</option>)}
