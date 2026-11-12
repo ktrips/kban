@@ -71,7 +71,7 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
             見込み {fmtTokens(l.planned)}{l.plannedPct !== undefined ? <> ({l.plannedPct}%{mark})</> : mark ? <> {mark}</> : null}
             {l.usedFrom === "claude" ? <> + 使用済み <b>{l.usedPct}%</b></> : <> + 使用済み {fmtTokens(l.used)}{l.usedPct !== undefined ? ` (${l.usedPct}%)` : ""}</>}
           </span>
-          <a className="note" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">契約の使用状況 ↗</a>
+          <a className="note" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer" title="契約全体の正確な使用状況は claude.ai で確認できます">Usage ↗</a>
           {(l.usedPct !== undefined || l.plannedPct !== undefined) &&
             <div className="meter slim inline" role="img" aria-label={`使用済み ${l.usedPct ?? 0}%、見込み ${l.plannedPct ?? 0}%`}><i style={{ width: w(l.usedPct) }} /><i className="plus" style={{ width: w(Math.min(l.plannedPct || 0, 100 - Math.min(100, l.usedPct || 0))) }} /></div>}
           {perRepo.map((x) => <span key={x.full} className="note"><Tag full={x.full} /> <span className="num">{x.n}/{fmtTokens(x.t)}</span></span>)}
