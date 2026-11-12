@@ -106,6 +106,14 @@ h1{font-size:15px;margin:0}
 .life-foot{display:flex;gap:10px;justify-content:space-between;font-size:12px;color:var(--muted)}
 .life-foot .num{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .life-repo.add{align-items:center;justify-content:center;border-style:dashed;border-top-width:1px;background:transparent;color:var(--muted);min-height:140px}
+@media (max-width:600px){
+  .life-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .life-repo{min-height:150px;padding:14px 12px 10px;gap:6px;border-radius:12px;border-top-width:4px}
+  .life-nm{font-size:22px}
+  .life-about{font-size:13px;line-height:1.5}
+  .life-about.none{font-size:12px}
+  .life-foot{font-size:10px;gap:6px}
+}
 @media (prefers-reduced-motion:no-preference){.life-repo{transition:transform .15s,box-shadow .15s,border-color .15s}}
 
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
