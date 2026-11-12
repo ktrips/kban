@@ -71,7 +71,7 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
       {!me.github && (
         <div className="banner btns">
           <span>ボードを作ってリポジトリを選ぶには、GitHub の連携が必要です。共有されたボードは連携なしで使えます。</span>
-          <button className="btn small primary" onClick={() => setSettings(true)}>設定で GitHub を連携</button>
+          <a className="btn small primary" href="/api/github/connect">GitHub を連携</a>
         </div>
       )}
 
@@ -84,7 +84,7 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
         <button className="btn primary small" type="submit" disabled={!me.github || !name.trim()}>作成</button>
       </form>
 
-      {settings && <Settings me={me} reloadMe={reloadMe} toast={toast} onClose={() => setSettings(false)} />}
+      {settings && <Settings me={me} toast={toast} onClose={() => setSettings(false)} />}
     </>
   );
 }
@@ -107,6 +107,7 @@ function Account({ me, onSettings }: { me: Me; onSettings: () => void }) {
       {open && (
         <div className="acct-menu" role="menu">
           <div className="acct-who"><b>{me.user.name || me.user.email}</b><span className="note">{me.user.email}</span>{me.github && <span className="note">GitHub: {me.github.login}</span>}</div>
+          <a role="menuitem" href="/api/github/connect">{me.github ? "GitHub 再連携" : "GitHub を連携"}</a>
           <button role="menuitem" onClick={() => { setOpen(false); onSettings(); }}>設定</button>
           <form action={logout}><button role="menuitem" type="submit">ログアウト</button></form>
         </div>
@@ -115,25 +116,15 @@ function Account({ me, onSettings }: { me: Me; onSettings: () => void }) {
   );
 }
 
-function Settings({ me, reloadMe, toast, onClose }: { me: Me; reloadMe: () => void; toast: (m: string) => void; onClose: () => void }) {
+function Settings({ me, toast, onClose }: { me: Me; toast: (m: string) => void; onClose: () => void }) {
   const [token, setToken] = useState("");
   async function makeToken() {
     if (token || confirm("iPhone 用のトークンを作ります。前に作ったトークンは使えなくなります。")) {
       try { setToken((await api<{ token: string }>("/api/me/capture", "POST")).token); } catch (e) { toast((e as Error).message); }
     }
   }
-  async function unlink() {
-    try { await api("/api/me", "DELETE"); reloadMe(); toast("GitHub の連携を外しました"); } catch (e) { toast((e as Error).message); }
-  }
   return (
     <Sheet title="設定" onClose={onClose}>
-      <section className="section">
-        <h3>GitHub 連携</h3>
-        {me.github
-          ? <div className="btns"><span>連携中: <b className="num">{me.github.login}</b></span><a className="btn small" href="/api/github/connect">連携し直す</a><button className="btn small ghost" onClick={unlink}>連携を外す</button></div>
-          : <div className="btns"><span className="note">ボードを作ってリポジトリを選ぶには、GitHub アカウントの連携が必要です。共有されたボードは連携なしで使えます。</span><a className="btn primary" href="/api/github/connect">GitHub を連携</a></div>}
-      </section>
-
       <section className="section">
         <h3>iPhone から追加</h3>
         <p className="note" style={{ margin: 0 }}>iOS アプリを入れると、写真やスクリーンショットの「共有」から kban を選ぶだけでバックログに入ります。アプリの「トークン」欄に貼ることもできます。</p>

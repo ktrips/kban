@@ -32,7 +32,7 @@ export const POST = async (req: Request, { params }: P) => {
       }
     } catch (e) {
       const st = (e as { status?: number }).status;
-      if (st === 403 || st === 404) throw Object.assign(new Error("GitHub の権限が足りません。トップ右上のアカウント → 設定 → GitHub 連携の「連携し直す」で GitHub を連携し直してください(ワークフローとシークレットの書き込み権限が要ります)"), { status: 409 });
+      if (st === 403 || st === 404) throw Object.assign(new Error("GitHub の権限が足りません。トップ右上のアカウント →「GitHub 再連携」で GitHub を連携し直してください(ワークフローとシークレットの書き込み権限が要ります)"), { status: 409 });
       throw e;
     }
     throw bad("不明な操作です");
