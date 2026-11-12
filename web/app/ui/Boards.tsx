@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "./common";
+import { useEffect, useRef, useState } from "react";
+import { api, tLabel } from "./common";
 import { LimitsSetup } from "./Limits";
+import { Sheet } from "./BoardHome";
+import { logout } from "../actions";
 import type { ClaudeLimits } from "@/lib/limits";
+import type { RepoSettings } from "@/lib/store";
 
 export type Me = { user: { email: string; name: string }; github: { login: string } | null; limits?: ClaudeLimits | null; limitsLinked?: boolean };
-type BoardItem = { id: string; name: string; ownerEmail: string; repos: string[]; members: number; role?: "editor" | "viewer" };
+type BoardItem = { id: string; name: string; ownerEmail: string; repos: RepoSettings[]; members: number; role?: "editor" | "viewer" };
 
-/** Start screen: who I am, GitHub link, my boards and boards shared with me. */
+/** Same repository, same color, wherever it appears. */
+const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+
+/** Start screen: what I want to make and keep track of, one big card per repository. */
 export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; toast: (m: string) => void }) {
   const [list, setList] = useState<{ own: BoardItem[]; shared: BoardItem[] } | null>(null);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
+  const [settings, setSettings] = useState(false);
   const load = () => api<{ own: BoardItem[]; shared: BoardItem[] }>("/api/boards").then(setList).catch((e) => setErr(e.message));
   useEffect(() => { load(); }, []);
 
@@ -22,6 +29,93 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
     try { const { id } = await api<{ id: string }>("/api/boards", "POST", { name }); location.hash = `b/${id}`; }
     catch (e) { toast((e as Error).message); }
   }
+
+  const board = (b: BoardItem) => (
+    <section key={b.id} className="life">
+      <div className="life-h">
+        <a className="life-board" href={`#b/${b.id}`}>{b.name}</a>
+        <span className="note">{b.role ? `${b.ownerEmail} のボード · ${b.role === "editor" ? "編集できる" : "見るだけ"}` : b.members ? `${b.members}人と共有中` : "自分だけ"}</span>
+        <div className="spacer" />
+        <a className="btn small" href={`#b/${b.id}`}>ボードを開く</a>
+      </div>
+      {b.repos.length ? (
+        <div className="life-grid">
+          {b.repos.map((r) => (
+            <a key={r.full} className="life-repo" href={`#b/${b.id}/${r.full}`} style={{ ["--h" as string]: hue(r.full) } as React.CSSProperties}>
+              <div className="life-nm">{r.name}</div>
+              {r.about
+                ? <p className="life-about">{r.about}</p>
+                : <p className="life-about none">何を作りたいか、何を続けたいかを書きましょう。ボードのリポジトリの「設定」→ アプリの概要</p>}
+              <div className="life-foot"><span className="num">{r.full}</span><span>{tLabel(r.target)}</span></div>
+            </a>
+          ))}
+        </div>
+      ) : <a className="life-repo add" href={`#b/${b.id}`}><b>+ リポジトリを追加</b><span className="note">ボードを開いて GitHub のリポジトリを選ぶ</span></a>}
+    </section>
+  );
+
+  return (
+    <>
+      <header>
+        <span className="logo"><b>K</b>ban</span><span className="tagline">Kanban for Life</span>
+        <div className="spacer" />
+        <Account me={me} onSettings={() => setSettings(true)} />
+      </header>
+      {err && <div className="banner">{err}</div>}
+
+      <div className="life-hero">
+        <h1>人生で、作りたいもの。<br />追いかけたいこと。</h1>
+        <p>リポジトリごとに「次に作りたいこと」を積み上げて、AI と一緒に形にしていく。</p>
+      </div>
+
+      {!me.github && (
+        <div className="banner btns">
+          <span>ボードを作ってリポジトリを選ぶには、GitHub の連携が必要です。共有されたボードは連携なしで使えます。</span>
+          <button className="btn small primary" onClick={() => setSettings(true)}>設定で GitHub を連携</button>
+        </div>
+      )}
+
+      {list?.own.map(board)}
+      {!!list?.shared.length && <><h2 className="life-sec">共有されたボード</h2>{list.shared.map(board)}</>}
+      {!list && !err && <p className="note">読み込み中…</p>}
+
+      <form className="add" onSubmit={create}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="+ 新しいボード(例: 個人アプリ)" aria-label="ボード名" disabled={!me.github} />
+        <button className="btn primary small" type="submit" disabled={!me.github || !name.trim()}>作成</button>
+      </form>
+
+      {settings && <Settings me={me} reloadMe={reloadMe} toast={toast} onClose={() => setSettings(false)} />}
+    </>
+  );
+}
+
+/** Top-right account icon: settings and sign-out. */
+function Account({ me, onSettings }: { me: Me; onSettings: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", away); window.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); window.removeEventListener("keydown", esc); };
+  }, [open]);
+  const initial = (me.user.name || me.user.email || "?").trim().charAt(0).toUpperCase();
+  return (
+    <div className="acct" ref={ref}>
+      <button className="acct-btn" aria-label="アカウント" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{initial}</button>
+      {open && (
+        <div className="acct-menu" role="menu">
+          <div className="acct-who"><b>{me.user.name || me.user.email}</b><span className="note">{me.user.email}</span>{me.github && <span className="note">GitHub: {me.github.login}</span>}</div>
+          <button role="menuitem" onClick={() => { setOpen(false); onSettings(); }}>設定</button>
+          <form action={logout}><button role="menuitem" type="submit">ログアウト</button></form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Settings({ me, reloadMe, toast, onClose }: { me: Me; reloadMe: () => void; toast: (m: string) => void; onClose: () => void }) {
   const [token, setToken] = useState("");
   async function makeToken() {
     if (token || confirm("iPhone 用のトークンを作ります。前に作ったトークンは使えなくなります。")) {
@@ -31,27 +125,10 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
   async function unlink() {
     try { await api("/api/me", "DELETE"); reloadMe(); toast("GitHub の連携を外しました"); } catch (e) { toast((e as Error).message); }
   }
-
-  const tile = (b: BoardItem) => (
-    <a key={b.id} className="repo" href={`#b/${b.id}`} style={{ color: "inherit", textDecoration: "none" }}>
-      <div><div className="nm">{b.name}</div><div className="full">{b.role ? `${b.ownerEmail} のボード · ${b.role === "editor" ? "編集できる" : "見るだけ"}` : b.members ? `${b.members}人と共有中` : "自分だけ"}</div></div>
-      <div className="meta">{b.repos.length ? b.repos.map((r) => <span key={r} className="chip">{r}</span>) : <span className="note">リポジトリはまだありません</span>}</div>
-    </a>
-  );
-
   return (
-    <>
-      <header>
-        <span className="logo"><b>K</b>ban</span><span className="tagline">Kanban for Life</span>
-        <div className="sub">リポジトリごとのバックログから、AIで実装・テスト・デプロイ・確認まで</div>
-        <div className="spacer" />
-        <span className="note">{me.user.email}</span>
-        <a className="btn small" href="/api/auth/signout">ログアウト</a>
-      </header>
-      {err && <div className="banner">{err}</div>}
-
+    <Sheet title="設定" onClose={onClose}>
       <section className="section">
-        <h3>GitHub</h3>
+        <h3>GitHub 連携</h3>
         {me.github
           ? <div className="btns"><span>連携中: <b className="num">{me.github.login}</b></span><a className="btn small" href="/api/github/connect">連携し直す</a><button className="btn small ghost" onClick={unlink}>連携を外す</button></div>
           : <div className="btns"><span className="note">ボードを作ってリポジトリを選ぶには、GitHub アカウントの連携が必要です。共有されたボードは連携なしで使えます。</span><a className="btn primary" href="/api/github/connect">GitHub を連携</a></div>}
@@ -68,23 +145,6 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
       </section>
 
       <LimitsSetup me={me} toast={toast} />
-
-      <h1>自分のボード</h1>
-      <div className="home-grid">
-        {list?.own.map(tile)}
-        <form className="repo add" onSubmit={create} style={{ cursor: "default" }}>
-          <b>+ 新しいボード</b>
-          <input className="flt" value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 個人アプリ" aria-label="ボード名" disabled={!me.github} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px", background: "var(--panel)", width: "80%" }} />
-          <button className="btn primary small" type="submit" disabled={!me.github || !name.trim()}>作成</button>
-          {!me.github && <span className="note">先に GitHub を連携してください</span>}
-        </form>
-      </div>
-
-      {!!list?.shared.length && <>
-        <h1>共有されたボード</h1>
-        <div className="home-grid">{list.shared.map(tile)}</div>
-      </>}
-      {!list && !err && <p className="note">読み込み中…</p>}
-    </>
+    </Sheet>
   );
 }
