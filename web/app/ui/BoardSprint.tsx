@@ -28,7 +28,7 @@ export function BoardSprint({ data, reload, toast, onOpen }: { data: BoardData; 
   const name = (full: string) => board.repos.find((r) => r.full === full)?.name || full;
   const hue = (full: string) => (Math.max(0, board.repos.findIndex((r) => r.full === full)) * 67 + 200) % 360;
   const Tag = ({ full }: { full: string }) => (
-    <span className="chip" style={{ background: `hsl(${hue(full)} 55% 45% / .18)`, color: `hsl(${hue(full)} 60% 55%)`, fontWeight: 600 }}>{name(full)}</span>
+    <span className="chip rtag" style={{ background: `hsl(${hue(full)} 55% 45% / .18)`, color: `hsl(${hue(full)} 60% 55%)`, fontWeight: 600 }}>{name(full)}</span>
   );
 
   const l = sprintLoad(week, cards, board.weekTokens, new Date(), limits);
