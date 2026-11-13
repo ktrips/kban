@@ -6,9 +6,15 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const { next } = await searchParams;
   const to = next && /^\/(?!\/)/.test(next) ? next : "/"; // 同じサイト内のパスだけ
   return (
-    <div className="wrap" style={{ minHeight: "100%", justifyContent: "center", alignItems: "center" }}>
+    <div className="wrap" style={{ minHeight: "100%" }}>
+      <header>
+        <span className="logo"><b>K</b>ban</span><span className="tagline">Kanban for Life</span>
+      </header>
+      <div className="life-hero">
+        <h1>人生で、作りたいもの。<br />追いかけたいこと。</h1>
+        <p>リポジトリごとに「次に作りたいこと」を積み上げて、AI と一緒に形にしていく。</p>
+      </div>
       <div className="section" style={{ maxWidth: 420, width: "100%", gap: 16, padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}><div className="logo"><b>K</b>ban</div><span className="tagline">Kanban for Life</span></div>
         <form action={async () => { "use server"; await signIn("google", { redirectTo: to }, { prompt: "select_account" }); }}>
           <button className="btn primary" type="submit" style={{ width: "100%", justifyContent: "center", padding: "10px 14px" }}>Google でログイン</button>
         </form>

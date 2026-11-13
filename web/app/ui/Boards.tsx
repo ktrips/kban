@@ -14,13 +14,13 @@ type BoardItem = { id: string; name: string; ownerEmail: string; repos: RepoSett
 /** Same repository, same color, wherever it appears. */
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
 
-/** 「Web」「iOS+Web」の表記。URL がある側だけリンクにする。 */
+/** 「Web」「iOS+Web」の表記。URL がある側だけボタンにする。 */
 function Platform({ repo }: { repo: RepoSettings }) {
   const web = repo.url ? <a href={repo.url} target="_blank" rel="noreferrer">Web</a> : "Web";
   const ios = repo.appUrl ? <a href={repo.appUrl} target="_blank" rel="noreferrer">iOS</a> : "iOS";
-  if (repo.target === "ios") return <span>{ios}</span>;
-  if (repo.target === "both") return <span>{ios}+{web}</span>;
-  return <span>{web}</span>;
+  if (repo.target === "ios") return <span className="life-kind">{ios}</span>;
+  if (repo.target === "both") return <span className="life-kind">{ios}+{web}</span>;
+  return <span className="life-kind">{web}</span>;
 }
 
 /** Start screen: what I want to make and keep track of, one big card per repository. */
