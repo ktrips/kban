@@ -105,6 +105,12 @@ h1{font-size:15px;margin:0}
 .life-about.none{font-size:14px;font-weight:400;color:var(--muted)}
 .life-foot{display:flex;gap:10px;justify-content:space-between;font-size:12px;color:var(--muted)}
 .life-foot .num{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.life-hit{position:absolute;inset:0;z-index:0;border-radius:inherit}
+.life-hit:focus-visible{outline-offset:-3px}
+.life-repo:not(.add) > :not(.life-hit):not(.life-links){position:relative;z-index:1;pointer-events:none}
+.life-links{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none}
+.life-links a{pointer-events:auto;font-size:12px;font-weight:700;line-height:1.4;text-decoration:none;color:var(--c);border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:2px 10px}
+.life-links a:hover{border-color:var(--c)}
 .life-repo.add{align-items:center;justify-content:center;border-style:dashed;border-top-width:1px;background:transparent;color:var(--muted);min-height:140px}
 @media (max-width:600px){
   .life-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -113,6 +119,8 @@ h1{font-size:15px;margin:0}
   .life-about{font-size:13px;line-height:1.5}
   .life-about.none{font-size:12px}
   .life-foot{font-size:10px;gap:6px}
+  .life-links{gap:6px}
+  .life-links a{font-size:11px;padding:1px 8px}
 }
 @media (prefers-reduced-motion:no-preference){.life-repo{transition:transform .15s,box-shadow .15s,border-color .15s}}
 

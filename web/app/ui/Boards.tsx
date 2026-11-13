@@ -41,13 +41,20 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
       {b.repos.length ? (
         <div className="life-grid">
           {b.repos.map((r) => (
-            <a key={r.full} className="life-repo" href={`#b/${b.id}/${r.full}`} style={{ ["--h" as string]: hue(r.full) } as React.CSSProperties}>
+            <article key={r.full} className="life-repo" style={{ ["--h" as string]: hue(r.full) } as React.CSSProperties}>
+              <a className="life-hit" href={`#b/${b.id}/${r.full}`} aria-label={`${r.name} を開く`} />
               <div className="life-nm">{r.name}</div>
               {r.about
                 ? <p className="life-about">{r.about}</p>
                 : <p className="life-about none">何を作りたいか、何を続けたいかを書きましょう。ボードのリポジトリの「設定」→ アプリの概要</p>}
+              {(r.url || r.appUrl) && (
+                <div className="life-links">
+                  {r.url && <a href={r.url} target="_blank" rel="noreferrer">Web ↗</a>}
+                  {r.appUrl && <a href={r.appUrl} target="_blank" rel="noreferrer">iOS ↗</a>}
+                </div>
+              )}
               <div className="life-foot"><span className="num">{r.full}</span><span>{tLabel(r.target)}</span></div>
-            </a>
+            </article>
           ))}
         </div>
       ) : <a className="life-repo add" href={`#b/${b.id}`}><b>+ リポジトリを追加</b><span className="note">ボードを開いて GitHub のリポジトリを選ぶ</span></a>}

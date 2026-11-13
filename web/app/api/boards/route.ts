@@ -8,7 +8,7 @@ export const GET = () =>
   handle(async () => {
     const u = await me();
     const { own, shared } = await boardsFor(u.uid, u.email);
-    const view = (b: (typeof own)[number]) => ({ id: b.id, name: b.name, ownerEmail: b.ownerEmail, repos: b.repos.map((r) => ({ full: r.full, name: r.name, about: r.about, target: r.target })), members: Object.keys(b.members).length });
+    const view = (b: (typeof own)[number]) => ({ id: b.id, name: b.name, ownerEmail: b.ownerEmail, repos: b.repos.map((r) => ({ full: r.full, name: r.name, about: r.about, target: r.target, url: r.url, appUrl: r.appUrl })), members: Object.keys(b.members).length });
     return { own: own.map(view), shared: shared.map((b) => ({ ...view(b), role: b.members[u.email] })) };
   });
 
