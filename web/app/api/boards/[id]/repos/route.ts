@@ -1,7 +1,7 @@
 import { access, bad } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
 import { saveBoard } from "@/lib/store";
-import { ensureLabels, gh } from "@/lib/github";
+import { ensureLabels, gh, homepageUrl } from "@/lib/github";
 import type { Target } from "@/lib/stages";
 
 type P = Ctx<{ id: string }>;
@@ -18,7 +18,7 @@ export const POST = async (req: Request, { params }: P) => {
     const [owner, repo] = full.split("/");
     const { data } = await gh(a.token).repos.get({ owner, repo });
     await ensureLabels(a.token, full);
-    a.board.repos.push({ full: data.full_name, name: data.name, target: "web", about: data.description || "" });
+    a.board.repos.push({ full: data.full_name, name: data.name, target: "web", about: data.description || "", url: homepageUrl(data.homepage) });
     await saveBoard(a.board);
   });
 };

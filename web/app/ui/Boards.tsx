@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api, tLabel } from "./common";
+import { api } from "./common";
 import { LimitsSetup } from "./Limits";
 import { Sheet } from "./BoardHome";
 import { logout } from "../actions";
@@ -13,6 +13,15 @@ type BoardItem = { id: string; name: string; ownerEmail: string; repos: RepoSett
 
 /** Same repository, same color, wherever it appears. */
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+
+/** 「Web」「iOS+Web」の表記。URL がある側だけリンクにする。 */
+function Platform({ repo }: { repo: RepoSettings }) {
+  const web = repo.url ? <a href={repo.url} target="_blank" rel="noreferrer">Web</a> : "Web";
+  const ios = repo.appUrl ? <a href={repo.appUrl} target="_blank" rel="noreferrer">iOS</a> : "iOS";
+  if (repo.target === "ios") return <span>{ios}</span>;
+  if (repo.target === "both") return <span>{ios}+{web}</span>;
+  return <span>{web}</span>;
+}
 
 /** Start screen: what I want to make and keep track of, one big card per repository. */
 export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; toast: (m: string) => void }) {
@@ -47,13 +56,7 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
               {r.about
                 ? <p className="life-about">{r.about}</p>
                 : <p className="life-about none">何を作りたいか、何を続けたいかを書きましょう。ボードのリポジトリの「設定」→ アプリの概要</p>}
-              {(r.url || r.appUrl) && (
-                <div className="life-links">
-                  {r.url && <a href={r.url} target="_blank" rel="noreferrer">Web ↗</a>}
-                  {r.appUrl && <a href={r.appUrl} target="_blank" rel="noreferrer">iOS ↗</a>}
-                </div>
-              )}
-              <div className="life-foot"><span className="num">{r.full}</span><span>{tLabel(r.target)}</span></div>
+              <div className="life-foot"><span className="num">{r.full}</span><Platform repo={r} /></div>
             </article>
           ))}
         </div>

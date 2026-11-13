@@ -3,6 +3,9 @@ import { STAGE_IDS, StageId, Target, Size, stageFromLabels, stageLabel, targetFr
 import { parseBody, renderBody, parseMarkers, CardBody, Markers } from "./body";
 import type { RepoSettings } from "./store";
 import { planInstall } from "./install";
+import { homepageUrl } from "./homepage.ts";
+
+export { homepageUrl };
 
 export type GhRepo = { full: string; name: string; description: string; pushedAt?: string; private: boolean };
 export type Card = CardBody & {
@@ -48,6 +51,32 @@ const split = (full: string) => {
   if (!owner || !repo) throw new Error(`owner/repo の形式ではありません: ${full}`);
   return { owner, repo };
 };
+
+/** Website が空だったリポジトリは、しばらく聞き直さない(ボード画面は 20 秒ごとに読み直す)。 */
+const noWebsiteUntil = new Map<string, number>();
+const WEBSITE_AGAIN_MS = 6 * 60 * 60 * 1000;
+
+/** 未設定の Web URL を GitHub の Website で埋める。手で入れた URL は残す。変えたら true。 */
+export async function fillRepoWebUrls(token: string, repos: { full: string; url?: string }[]): Promise<boolean> {
+  const now = Date.now();
+  const missing = repos.filter((r) => !r.url && (noWebsiteUntil.get(r.full) ?? 0) <= now);
+  if (!missing.length) return false;
+  const found = await Promise.all(missing.map(async (r) => {
+    try {
+      const { data } = await gh(token).repos.get(split(r.full));
+      return [r, homepageUrl(data.homepage), true] as const;
+    } catch {
+      return [r, undefined, false] as const;
+    }
+  }));
+  let changed = false;
+  for (const [r, url, ok] of found) {
+    if (!ok) continue;
+    if (url) { r.url = url; changed = true; }
+    else noWebsiteUntil.set(r.full, now + WEBSITE_AGAIN_MS);
+  }
+  return changed;
+}
 const labelNames = (labels: (string | { name?: string })[]) =>
   labels.map((l) => (typeof l === "string" ? l : l.name || "")).filter(Boolean);
 

@@ -2,7 +2,7 @@ import { access, bad } from "@/lib/access";
 import { handle, Ctx } from "@/lib/route";
 import { deleteBoard, getUser, saveBoard } from "@/lib/store";
 import { current } from "@/lib/limits";
-import { listCards } from "@/lib/github";
+import { fillRepoWebUrls, listCards } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
 type P = Ctx<{ id: string }>;
@@ -12,6 +12,7 @@ export const GET = async (_: Request, { params }: P) => {
   const { id } = await params;
   return handle(async () => {
     const a = await access(id, "view");
+    if (a.canEdit && await fillRepoWebUrls(a.token, a.board.repos)) await saveBoard(a.board);
     const failed: string[] = [];
     // Claude の契約の使用率はボードの持ち主のもの(Claude Code は持ち主の契約で動く)
     const limits = current((await getUser(a.board.owner))?.limits);
