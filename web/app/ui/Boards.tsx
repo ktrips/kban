@@ -74,8 +74,8 @@ export function Boards({ me, reloadMe, toast }: { me: Me; reloadMe: () => void; 
       {err && <div className="banner">{err}</div>}
 
       <div className="life-hero">
-        <h1>人生で、作りたいもの。<br />追いかけたいこと。</h1>
-        <p>リポジトリごとに「次に作りたいこと」を積み上げて、AI と一緒に形にしていく。</p>
+        <h1>人生で作りたいモノ、続けたいコト</h1>
+        <p>次に作りたい物を積み上げて、すぐAIで実現する</p>
       </div>
 
       {!me.github && (

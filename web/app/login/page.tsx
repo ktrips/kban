@@ -11,8 +11,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <span className="logo"><b>K</b>ban</span><span className="tagline">Kanban for Life</span>
       </header>
       <div className="life-hero">
-        <h1>人生で、作りたいもの。<br />追いかけたいこと。</h1>
-        <p>リポジトリごとに「次に作りたいこと」を積み上げて、AI と一緒に形にしていく。</p>
+        <h1>人生で作りたいモノ、続けたいコト</h1>
+        <p>次に作りたい物を積み上げて、すぐAIで実現する</p>
       </div>
       <div className="section" style={{ maxWidth: 420, width: "100%", gap: 16, padding: 24 }}>
         <form action={async () => { "use server"; await signIn("google", { redirectTo: to }, { prompt: "select_account" }); }}>
