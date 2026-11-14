@@ -5,3 +5,5 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 ios/Kban.xcodeproj
+
+.DS_Store
